@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 24px; max-width: 980px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.page-head{ margin-bottom: 18px; }
+.page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
+.page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
+
+.panel{
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 22px;
+}
+.panel h2{ font-family: 'Fraunces', serif; font-size: 16px; margin: 0 0 12px; color: var(--brass-bright); }
+
+.admin-search{
+  width: 100%; max-width: 280px; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 7px;
+  padding: 8px 10px; color: var(--text); font-size: 13px; outline:none; margin-bottom: 12px;
+}
+
+table.admin-table{ width: 100%; border-collapse: collapse; }
+table.admin-table th{
+  text-align: left; padding: 8px 10px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-mute); border-bottom: 1px solid var(--border);
+  cursor: pointer; white-space: nowrap;
+}
+table.admin-table th:hover{ color: var(--brass-bright); }
+table.admin-table td{ padding: 8px 10px; border-bottom: 1px solid var(--border-soft); font-size: 13px; color: var(--text-dim); vertical-align: middle; }
+table.admin-table tr:hover td{ background: var(--panel-hi); }
+
+.role-select{
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px; color: var(--text);
+  font-size: 12.5px; padding: 5px 8px; outline:none;
+}
+
+.perm-table th, .perm-table td{ text-align: center; }
+.perm-table td:first-child, .perm-table th:first-child{ text-align: left; }
+.perm-table input[type="checkbox"]{ width: 16px; height: 16px; accent-color: var(--brass); cursor:pointer; }
+.perm-desc{ font-size: 11px; color: var(--text-mute); display:block; margin-top: 2px; }
+
+.gate-block{ display:none; flex-direction: column; align-items:center; justify-content:center; gap: 12px; padding: 80px 20px; text-align:center; }
+.gate-block.show{ display:flex; }
+.gate-block p{ font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-mute); max-width: 360px; }
+#adminContent{ display:none; }
+#adminContent.show{ display:block; }
+
+.save-note{ font-size: 11.5px; color: var(--text-mute); margin-left: 8px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+      <div class="page-head">
+        <h1>Admin</h1>
+        <p>Manage users, roles, and the policies tied to each role.</p>
+      </div>
+
+      <div class="gate-block" id="gateBlock">
+        <p>This page is only available to Admins.</p>
+        <button class="login-btn" id="gateLoginBtn">Log In</button>
+      </div>
+
+      <div id="adminContent">
+        <div class="panel">
+          <h2>Users</h2>
+          <input type="text" class="admin-search" id="userSearch" placeholder="Search username or email…">
+          <div style="overflow-x:auto">
+            <table class="admin-table" id="userTable">
+              <thead>
+                <tr>
+                  <th data-sort="username">Username</th>
+                  <th data-sort="email">Email</th>
+                  <th data-sort="role">Role</th>
+                  <th data-sort="created_at">Joined</th>
+                  <th data-sort="last_sign_in_at">Last Sign-in</th>
+                </tr>
+              </thead>
+              <tbody id="userTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Roles &amp; Policies</h2>
+          <div style="overflow-x:auto">
+            <table class="admin-table perm-table" id="permTable">
+              <thead>
+                <tr><th>Permission</th><th>User</th><th>Editor</th><th>Admin</th></tr>
+              </thead>
+              <tbody id="permTableBody"></tbody>
+            </table>
+          </div>
+          <span class="save-note" id="permSaveNote"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+(function(){
+  var ROLES = ['user', 'editor', 'admin'];
+  var els = {
+    gate: document.getElementById('gateBlock'),
+    gateLoginBtn: document.getElementById('gateLoginBtn'),
+    content: document.getElementById('adminContent'),
+    userSearch: document.getElementById('userSearch'),
+    userTableBody: document.getElementById('userTableBody'),
+    permTableBody: document.getElementById('permTableBody'),
+    permSaveNote: document.getElementById('permSaveNote')
+  };
+  els.gateLoginBtn.addEventListener('click', function(){ window.Auth.openLogin(); });
+
+  var users = [];
+  var userSort = { key: 'created_at', dir: 'asc' };
+  var permissions = [];
+  var rolePermissions = {}; // "role|perm" -> allowed boolean
+
+  function fmtDate(iso){
+    if (!iso) return '—';
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
+  function renderUsers(){
+    var q = (els.userSearch.value || '').toLowerCase().trim();
+    var list = users.filter(function(u){
+      if (!q) return true;
+      return (u.username || '').toLowerCase().indexOf(q) !== -1 || (u.email || '').toLowerCase().indexOf(q) !== -1;
+    });
+    list.sort(function(a, b){
+      var av = a[userSort.key] || '', bv = b[userSort.key] || '';
+      if (av === bv) return 0;
+      var r = av < bv ? -1 : 1;
+      return userSort.dir === 'asc' ? r : -r;
+    });
+
+    els.userTableBody.innerHTML = '';
+    list.forEach(function(u){
+      var tr = document.createElement('tr');
+
+      var tdUser = document.createElement('td');
+      tdUser.textContent = u.username;
+      tr.appendChild(tdUser);
+
+      var tdEmail = document.createElement('td');
+      tdEmail.textContent = u.email || '—';
+      tr.appendChild(tdEmail);
+
+      var tdRole = document.createElement('td');
+      var select = document.createElement('select');
+      select.className = 'role-select';
+      ROLES.forEach(function(r){
+        var opt = document.createElement('option');
+        opt.value = r;
+        opt.textContent = r.charAt(0).toUpperCase() + r.slice(1);
+        if (r === u.role) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.addEventListener('change', function(){
+        var newRole = select.value;
+        window.sb.rpc('set_user_role', { target_user: u.id, new_role: newRole }).then(function(res){
+          if (res.error){
+            alert('Could not change role: ' + res.error.message);
+            select.value = u.role;
+            return;
+          }
+          u.role = newRole;
+        });
+      });
+      tdRole.appendChild(select);
+      tr.appendChild(tdRole);
+
+      var tdCreated = document.createElement('td');
+      tdCreated.textContent = fmtDate(u.created_at);
+      tr.appendChild(tdCreated);
+
+      var tdSeen = document.createElement('td');
+      tdSeen.textContent = fmtDate(u.last_sign_in_at);
+      tr.appendChild(tdSeen);
+
+      els.userTableBody.appendChild(tr);
+    });
+  }
+
+  document.querySelectorAll('#userTable th[data-sort]').forEach(function(th){
+    th.addEventListener('click', function(){
+      var key = th.getAttribute('data-sort');
+      if (userSort.key === key) userSort.dir = userSort.dir === 'asc' ? 'desc' : 'asc';
+      else { userSort.key = key; userSort.dir = 'asc'; }
+      renderUsers();
+    });
+  });
+  els.userSearch.addEventListener('input', renderUsers);
+
+  function loadUsers(){
+    window.sb.rpc('admin_list_users').then(function(res){
+      users = res.data || [];
+      renderUsers();
+    });
+  }
+
+  function permKey(role, perm){ return role + '|' + perm; }
+
+  function renderPermissions(){
+    els.permTableBody.innerHTML = '';
+    permissions.forEach(function(p){
+      var tr = document.createElement('tr');
+      var tdName = document.createElement('td');
+      tdName.innerHTML = p.key + '<span class="perm-desc">' + p.description + '</span>';
+      tr.appendChild(tdName);
+
+      ROLES.forEach(function(role){
+        var td = document.createElement('td');
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!rolePermissions[permKey(role, p.key)];
+        cb.addEventListener('change', function(){
+          window.sb.rpc('set_role_permission', {
+            target_role: role, target_permission: p.key, is_allowed: cb.checked
+          }).then(function(res){
+            if (res.error){
+              alert('Could not update policy: ' + res.error.message);
+              cb.checked = !cb.checked;
+              return;
+            }
+            rolePermissions[permKey(role, p.key)] = cb.checked;
+            els.permSaveNote.textContent = 'Saved ' + new Date().toLocaleTimeString();
+          });
+        });
+        td.appendChild(cb);
+        tr.appendChild(td);
+      });
+
+      els.permTableBody.appendChild(tr);
+    });
+  }
+
+  function loadPermissions(){
+    Promise.all([
+      window.sb.from('permissions').select('*').order('key'),
+      window.sb.from('role_permissions').select('*')
+    ]).then(function(results){
+      permissions = results[0].data || [];
+      rolePermissions = {};
+      (results[1].data || []).forEach(function(rp){
+        rolePermissions[permKey(rp.role, rp.permission_key)] = rp.allowed;
+      });
+      renderPermissions();
+    });
+  }
+
+  function applyGate(){
+    var isAdmin = window.Auth && window.Auth.can('view_admin_panel');
+    els.gate.classList.toggle('show', !isAdmin);
+    els.content.classList.toggle('show', !!isAdmin);
+    if (isAdmin){
+      loadUsers();
+      loadPermissions();
+    }
+  }
+
+  window.addEventListener('auth:change', applyGate);
+  if (window.Auth){
+    window.Auth.ready.then(applyGate);
+  }
+})();
+</script>
+</body>
+</html>
