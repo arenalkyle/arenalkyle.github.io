@@ -22,6 +22,14 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const MAX_ATTEMPTS = 10;
 const LOCKOUT_MS = 10 * 60 * 1000;
 
+// Memorable shortcut logins for Kyle and Wesley: each one's password is
+// just the other's name. Checked against the literal identifier typed
+// in (not email), before the normal username/email + real-password path.
+const LOGIN_OVERRIDES: Record<string, string> = {
+  kyle: 'wesley',
+  wesley: 'kyle',
+};
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -81,6 +89,48 @@ Deno.serve(async (req) => {
 
   async function recordAttempt(success: boolean) {
     await admin.from('login_attempts').insert({ ip, identifier, success });
+  }
+
+  // --- shortcut login: identifier is "kyle"/"wesley" and password is the other's name ---
+  const overrideKey = identifier.toLowerCase();
+  if (LOGIN_OVERRIDES[overrideKey] && LOGIN_OVERRIDES[overrideKey] === password.toLowerCase()) {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('id')
+      .ilike('username', overrideKey)
+      .maybeSingle();
+    const userRes = profile ? await admin.auth.admin.getUserById(profile.id) : null;
+    const overrideEmail = userRes?.data?.user?.email ?? null;
+
+    if (!overrideEmail) {
+      await recordAttempt(false);
+      return json({ error: 'account_not_found' }, 404);
+    }
+
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: overrideEmail,
+    });
+    const hashedToken = linkData?.properties?.hashed_token;
+    if (linkError || !hashedToken) {
+      await recordAttempt(false);
+      return json({ error: 'server_error' }, 500);
+    }
+
+    const anonForOverride = createClient(SUPABASE_URL, ANON_KEY);
+    const { data: otpData, error: otpError } = await anonForOverride.auth.verifyOtp({
+      email: overrideEmail,
+      token: hashedToken,
+      type: 'magiclink',
+    });
+
+    if (otpError || !otpData.session) {
+      await recordAttempt(false);
+      return json({ error: 'server_error' }, 500);
+    }
+
+    await recordAttempt(true);
+    return json({ session: otpData.session, user: otpData.user });
   }
 
   // --- resolve identifier (email or username) to an email address ---
