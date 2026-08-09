@@ -284,10 +284,60 @@ html, body{ overflow: hidden; }
     });
   }
 
+  // TEMP no-backend workaround -- see CLAUDE.md "Kyle/Wesley login workaround".
+  // Local-override logins have no real Supabase rows to load from, so their
+  // in-progress order is stashed in localStorage each time they hit Save.
+  function draftStorageKey(username){ return 'ff_local_rankings_draft_' + username; }
+
+  function loadLocalDraft(username){
+    try {
+      var raw = localStorage.getItem(draftStorageKey(username));
+      if (!raw) return null;
+      var saved = JSON.parse(raw).filter(function(k){ return playersByKey[k]; });
+      if (!saved.length) return null;
+      var have = new Set(saved);
+      window.__PLAYERS__.forEach(function(p){ var k = window.playerKey(p); if (!have.has(k)) saved.push(k); });
+      return saved;
+    } catch (e) { return null; }
+  }
+
+  function exportRankingsCsv(username, orderKeys){
+    var rows = [['rank', 'player_key', 'name', 'team', 'pos']];
+    orderKeys.forEach(function(key, idx){
+      var p = playersByKey[key];
+      if (!p) return;
+      rows.push([idx + 1, key, p.name, p.team, p.pos]);
+    });
+    var csv = rows.map(function(r){
+      return r.map(function(v){
+        var s = String(v);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }).join(',');
+    }).join('\n');
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var today = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = username + '-rankings-' + today + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   function loadMyRankings(){
     if (!window.Auth || !window.Auth.user){
       order = defaultOrder();
       renderList();
+      return;
+    }
+    if (window.Auth.user.isLocalOverride){
+      order = loadLocalDraft(window.Auth.profile.username.toLowerCase()) || defaultOrder();
+      selected = new Set();
+      setDirty(false);
+      renderList();
+      updateSelectionHint();
       return;
     }
     window.sb.from('rankings').select('player_key, rank').eq('owner_id', window.Auth.user.id).order('rank').then(function(res){
@@ -306,6 +356,19 @@ html, body{ overflow: hidden; }
   }
 
   els.saveBtn.addEventListener('click', function(){
+    // TEMP no-backend workaround -- see CLAUDE.md. Local-override logins
+    // (Kyle/Wesley) have no real Supabase project to save to, so instead
+    // of the rpc call, stash a draft locally and export a CSV to hand-copy
+    // into js/players-data.js's kyle/wesley fields until real auth is live.
+    if (window.Auth.user.isLocalOverride){
+      var username = window.Auth.profile.username.toLowerCase();
+      try { localStorage.setItem(draftStorageKey(username), JSON.stringify(order)); } catch (e) {}
+      exportRankingsCsv(username, order);
+      setDirty(false);
+      els.saveStatus.textContent = 'Exported CSV — paste ranks into js/players-data.js.';
+      return;
+    }
+
     els.saveBtn.disabled = true;
     els.saveStatus.textContent = 'Saving…';
     window.sb.rpc('replace_user_rankings', { player_keys: order }).then(function(res){
