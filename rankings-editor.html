@@ -9,7 +9,7 @@
 html, body{ overflow: hidden; }
 
 .wrap{
-  flex: 1 1 auto; min-height: 0; padding: 18px 20px 18px; max-width: 760px; width: 100%; margin: 0 auto;
+  flex: 1 1 auto; min-height: 0; padding: 18px 20px 18px;
   display: flex; flex-direction: column; overflow: hidden;
 }
 
@@ -33,33 +33,94 @@ html, body{ overflow: hidden; }
 .save-btn:disabled{ opacity: 0.45; cursor: not-allowed; }
 .save-status{ font-size: 12px; color: var(--text-dim); }
 
-.list-shell{
+/* ---------- Table (mirrors index.html's Rankings table) ---------- */
+.table-shell{
   border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
-  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+}
+.table-scroll{ flex: 1 1 auto; min-height: 0; overflow: auto; }
+table{ width: 100%; border-collapse: collapse; min-width: 1150px; }
+
+thead th{
+  position: sticky; top: 0; z-index: 3; background: #201310; border-bottom: 1px solid var(--border);
+  text-align: left; padding: 13px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-mute); white-space: nowrap;
+}
+thead th.group-26{ color: #7a6a5a; }
+thead th.group-25{ color: var(--text-mute); }
+thead th.group-start{ border-left: 1px solid var(--border-soft); }
+
+.col-pos{ text-align: center; min-width: 46px; }
+.pos-pill-cell{
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.03em;
+  color: var(--brass); background: rgba(201,161,90,0.12); border: 1px solid var(--border-soft);
+  border-radius: 5px; padding: 3px 6px; display:inline-block;
+}
+.pos-pill-cell.pos-QB{ color: #e0973f; background: rgba(224,151,63,0.14); border-color: rgba(224,151,63,0.35); }
+.pos-pill-cell.pos-WR{ color: #e8829c; background: rgba(232,130,156,0.14); border-color: rgba(232,130,156,0.35); }
+.pos-pill-cell.pos-RB{ color: #5b9bd5; background: rgba(91,155,213,0.14); border-color: rgba(91,155,213,0.35); }
+.pos-pill-cell.pos-TE{ color: #ffffff; background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3); }
+.pos-pill-cell.pos-K{ color: #e8d24a; background: rgba(232,210,74,0.14); border-color: rgba(232,210,74,0.35); }
+.pos-pill-cell.pos-DST{ color: #e2726a; background: rgba(226,114,106,0.14); border-color: rgba(226,114,106,0.35); }
+
+th.col-select, td.col-select{ position: sticky; left: 0; z-index: 2; width: 54px; min-width: 54px; background: inherit; }
+th.col-photo, td.col-photo{ position: sticky; left: 54px; z-index: 2; width: 48px; min-width: 48px; background: inherit; }
+th.col-rank, td.col-rank{ position: sticky; left: 102px; z-index: 2; min-width: 96px; background: inherit; }
+th.col-player, td.col-player{ position: sticky; left: 198px; z-index: 2; min-width: 190px; background: inherit; }
+th.col-select, th.col-photo, th.col-rank, th.col-player{ background: #201310; }
+
+.col-num{ text-align: right; min-width: 68px; }
+.col-num.group-start{ border-left: 1px solid var(--border-soft); }
+.col-bye{ text-align: center; min-width: 56px; }
+
+tbody tr{ border-bottom: 1px solid var(--border-soft); transition: background .1s ease; cursor: default; }
+tbody tr:nth-child(even){ background: rgba(0,0,0,0.12); }
+tbody tr:hover{ background: var(--panel-hi); }
+tbody tr.selected{ background: rgba(230,195,132,0.12); outline: 1px solid var(--brass-dim); outline-offset: -1px; }
+tbody tr.dragging{ opacity: 0.35; }
+tbody tr.drag-over-top{ box-shadow: inset 0 2px 0 var(--brass-bright); }
+tbody tr.drag-over-bottom{ box-shadow: inset 0 -2px 0 var(--brass-bright); }
+
+td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
+
+/* photo avatar (shared look with index.html) */
+.avatar-wrap{
+  width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: var(--panel-alt);
+  border: 1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  position: relative;
+}
+.avatar-wrap img{ width: 100%; height: 100%; object-fit: cover; object-position: top center; display:block; }
+.avatar-wrap.logo img{ object-fit: contain; padding: 4px; background: #17100e; }
+.avatar-wrap img.hidden{ display:none; }
+.avatar-fallback{
+  width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  font-family:'Fraunces', serif; font-weight:700; font-size:11px; color: var(--brass-dim);
+  background: var(--panel-alt);
 }
 
-.rank-row{
-  display:flex; align-items:center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border-soft);
-  cursor: grab; background: var(--panel); user-select: none;
+.select-cell{ display:flex; align-items:center; justify-content:center; gap: 8px; }
+.select-cell input[type="checkbox"]{ accent-color: var(--brass); width: 15px; height: 15px; cursor:pointer; flex-shrink:0; }
+.select-cell .drag-handle{ color: var(--text-mute); font-size: 13px; cursor: grab; flex-shrink:0; }
+
+.rank-cell{ display:flex; align-items:center; gap: 7px; }
+.tier-plate{
+  display:inline-flex; align-items:center; justify-content:center; width: 22px; height: 22px; border-radius: 5px;
+  font-family: 'Fraunces', serif; font-weight: 900; font-size: 12px; color: rgba(0,0,0,0.68);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 3px rgba(0,0,0,0.25); flex-shrink: 0;
 }
-.rank-row:hover{ background: var(--panel-hi); }
-.rank-row.dragging{ opacity: 0.35; }
-.rank-row.drag-over-top{ box-shadow: inset 0 2px 0 var(--brass-bright); }
-.rank-row.drag-over-bottom{ box-shadow: inset 0 -2px 0 var(--brass-bright); }
-.rank-row.selected{ background: rgba(230,195,132,0.12); outline: 1px solid var(--brass-dim); outline-offset: -1px; }
-
-.rank-row input[type="checkbox"]{ accent-color: var(--brass); width: 15px; height: 15px; flex-shrink:0; cursor:pointer; }
-
 .rank-num-input{
-  width: 42px; flex-shrink:0; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px;
+  width: 40px; flex-shrink:0; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px;
   color: var(--brass-bright); font-family: 'JetBrains Mono', monospace; font-size: 12.5px; text-align:center;
-  padding: 5px 2px; outline:none;
+  padding: 4px 2px; outline:none;
 }
 .rank-num-input:focus{ border-color: var(--brass); }
 
-.rank-row .drag-handle{ color: var(--text-mute); font-size: 13px; flex-shrink:0; }
-.rank-row .row-name{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 14px; color: var(--text); flex: 1 1 auto; }
-.rank-row .row-meta{ font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-mute); flex-shrink:0; }
+.player-name{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 14.5px; color: var(--text); }
+.player-name .player-team{ font-weight: 500; color: var(--text-mute); }
+
+.num-cell{ font-family: 'JetBrains Mono', monospace; text-align: right; color: var(--text-dim); }
+.num-cell.pending{ color: var(--text-mute); opacity: 0.45; font-style: italic; }
+.bye-cell{ font-family: 'JetBrains Mono', monospace; text-align: center; color: var(--text-dim); }
 
 .gate-overlay{
   position:absolute; inset: 0; z-index: 20; display:none; align-items:center; justify-content:center;
@@ -67,8 +128,14 @@ html, body{ overflow: hidden; }
 }
 .gate-overlay.show{ display:flex; }
 .gate-overlay p{ font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-dim); text-align:center; max-width: 280px; }
-.editor-shell.locked .list-shell{ filter: blur(6px); pointer-events: none; }
+.editor-shell.locked .table-shell{ filter: blur(6px); pointer-events: none; }
 .editor-shell.locked .save-bar{ filter: blur(6px); pointer-events: none; }
+
+@media (max-width: 640px){
+  .wrap{ padding: 16px 12px 12px; }
+  th.col-rank, td.col-rank{ min-width: 80px; left: 102px; }
+  th.col-player, td.col-player{ min-width: 150px; left: 182px; }
+}
 </style>
 </head>
 <body>
@@ -95,7 +162,31 @@ html, body{ overflow: hidden; }
           <button class="save-btn" id="saveBtn" disabled>Save Rankings</button>
         </div>
 
-        <div class="list-shell" id="listShell"></div>
+        <div class="table-shell">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th class="col-select"></th>
+                  <th class="col-photo"></th>
+                  <th class="col-rank">Rank</th>
+                  <th class="col-player">Player</th>
+                  <th class="col-pos">PosRk</th>
+                  <th class="col-bye">Bye</th>
+                  <th class="col-num group-26 group-start">26&rsquo;Pts</th>
+                  <th class="col-num group-26">26&rsquo;PPG</th>
+                  <th class="col-num group-26">26&rsquo;PosRk</th>
+                  <th class="col-num group-26">26&rsquo;OvRk</th>
+                  <th class="col-num group-25 group-start">25&rsquo;Pts</th>
+                  <th class="col-num group-25">25&rsquo;PPG</th>
+                  <th class="col-num group-25">25&rsquo;PosRk</th>
+                  <th class="col-num group-25">25&rsquo;OvRk</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -109,13 +200,14 @@ html, body{ overflow: hidden; }
 <script src="js/auth.js"></script>
 <script src="js/sidebar.js"></script>
 <script src="js/players-data.js"></script>
+<script src="js/player-render.js"></script>
 <script>
 (function(){
   var els = {
     shell: document.getElementById('editorShell'),
     gate: document.getElementById('gateOverlay'),
     gateLoginBtn: document.getElementById('gateLoginBtn'),
-    listShell: document.getElementById('listShell'),
+    tbody: document.getElementById('tbody'),
     saveBtn: document.getElementById('saveBtn'),
     saveStatus: document.getElementById('saveStatus'),
     selectionHint: document.getElementById('selectionHint')
@@ -125,6 +217,8 @@ html, body{ overflow: hidden; }
 
   var playersByKey = {};
   window.__PLAYERS__.forEach(function(p){ playersByKey[window.playerKey(p)] = p; });
+
+  var photoObserver = window.PlayerRender.createPhotoObserver();
 
   function defaultOrder(){
     // Sensible starting point for a brand-new ranking: current kyle/wesley avg, nulls last, name as tiebreak.
@@ -181,105 +275,196 @@ html, body{ overflow: hidden; }
     order.splice(to, 0, key);
   }
 
-  function renderList(){
-    var frag = document.createDocumentFragment();
-    order.forEach(function(key, idx){
+  // Position rank (PosRk column), e.g. "RB1" -- computed straight from the
+  // current order, since (unlike the Rankings page) there's only one ranking here.
+  function computePosRanks(){
+    var counts = {};
+    var map = new Map();
+    order.forEach(function(key){
       var p = playersByKey[key];
       if (!p) return;
-      var row = document.createElement('div');
-      row.className = 'rank-row' + (selected.has(key) ? ' selected' : '');
-      row.setAttribute('draggable', 'true');
-      row.dataset.key = key;
-
-      var checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.checked = selected.has(key);
-      checkbox.setAttribute('draggable', 'false');
-      checkbox.addEventListener('click', function(e){
-        e.stopPropagation();
-        if (checkbox.checked) selected.add(key); else selected.delete(key);
-        row.classList.toggle('selected', checkbox.checked);
-        updateSelectionHint();
-      });
-
-      var rankInput = document.createElement('input');
-      rankInput.className = 'rank-num-input';
-      rankInput.type = 'number';
-      rankInput.min = '1';
-      rankInput.max = String(order.length);
-      rankInput.value = String(idx + 1);
-      rankInput.setAttribute('draggable', 'false');
-      rankInput.addEventListener('click', function(e){ e.stopPropagation(); });
-      rankInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') rankInput.blur(); });
-      rankInput.addEventListener('blur', function(){
-        var val = parseInt(rankInput.value, 10);
-        if (!isNaN(val) && val !== idx + 1){
-          moveSingleToRank(key, val);
-          setDirty(true);
-          renderList();
-        } else {
-          rankInput.value = String(order.indexOf(key) + 1);
-        }
-      });
-
-      var handle = document.createElement('span');
-      handle.className = 'drag-handle';
-      handle.textContent = '≡';
-
-      var name = document.createElement('span');
-      name.className = 'row-name';
-      name.textContent = p.name + ' · ' + p.team;
-
-      var meta = document.createElement('span');
-      meta.className = 'row-meta';
-      meta.textContent = p.pos;
-
-      row.appendChild(checkbox);
-      row.appendChild(rankInput);
-      row.appendChild(handle);
-      row.appendChild(name);
-      row.appendChild(meta);
-
-      row.addEventListener('dragstart', function(e){
-        draggingKeys = selected.has(key) && selected.size > 1 ? Array.from(selected) : [key];
-        row.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', key);
-      });
-      row.addEventListener('dragend', function(){
-        row.classList.remove('dragging');
-        draggingKeys = null;
-        clearDragOverStyles();
-      });
-      row.addEventListener('dragover', function(e){
-        e.preventDefault();
-        if (!draggingKeys) return;
-        var rect = row.getBoundingClientRect();
-        var pos = (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom';
-        clearDragOverStyles();
-        row.classList.add(pos === 'top' ? 'drag-over-top' : 'drag-over-bottom');
-        dragOverKey = key;
-        dragOverPos = pos;
-      });
-      row.addEventListener('drop', function(e){
-        e.preventDefault();
-        if (!draggingKeys || dragOverKey == null) return;
-        var targetIdx = order.indexOf(dragOverKey);
-        if (dragOverPos === 'bottom') targetIdx++;
-        moveBlockToIndex(draggingKeys, targetIdx);
-        setDirty(true);
-        clearDragOverStyles();
-        renderList();
-      });
-
-      frag.appendChild(row);
+      counts[p.pos] = (counts[p.pos] || 0) + 1;
+      map.set(key, window.PlayerRender.posLabel(p.pos) + counts[p.pos]);
     });
-    els.listShell.innerHTML = '';
-    els.listShell.appendChild(frag);
+    return map;
+  }
+
+  function renderRow(key, idx, posRankMap){
+    var p = playersByKey[key];
+    if (!p) return null;
+    var rank = idx + 1;
+    var tier = window.PlayerRender.tierFor(rank);
+
+    var tr = document.createElement('tr');
+    tr.className = selected.has(key) ? 'selected' : '';
+    tr.setAttribute('draggable', 'true');
+    tr.dataset.key = key;
+
+    // select + drag handle
+    var tdSelect = document.createElement('td');
+    tdSelect.className = 'col-select';
+    var selectCell = document.createElement('div');
+    selectCell.className = 'select-cell';
+    var checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = selected.has(key);
+    checkbox.setAttribute('draggable', 'false');
+    checkbox.addEventListener('click', function(e){
+      e.stopPropagation();
+      if (checkbox.checked) selected.add(key); else selected.delete(key);
+      tr.classList.toggle('selected', checkbox.checked);
+      updateSelectionHint();
+    });
+    var handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.textContent = '≡';
+    selectCell.appendChild(checkbox);
+    selectCell.appendChild(handle);
+    tdSelect.appendChild(selectCell);
+    tr.appendChild(tdSelect);
+
+    // photo
+    var tdPhoto = document.createElement('td');
+    tdPhoto.className = 'col-photo';
+    tdPhoto.appendChild(window.PlayerRender.buildAvatarWrap(p, photoObserver));
+    tr.appendChild(tdPhoto);
+
+    // rank + tier (editable)
+    var tdRank = document.createElement('td');
+    tdRank.className = 'col-rank';
+    var rankCell = document.createElement('div');
+    rankCell.className = 'rank-cell';
+    var plate = document.createElement('span');
+    plate.className = 'tier-plate';
+    plate.style.background = tier ? tier.color : 'var(--tier-h)';
+    plate.textContent = tier ? tier.key : '-';
+    var rankInput = document.createElement('input');
+    rankInput.className = 'rank-num-input';
+    rankInput.type = 'number';
+    rankInput.min = '1';
+    rankInput.max = String(order.length);
+    rankInput.value = String(rank);
+    rankInput.setAttribute('draggable', 'false');
+    rankInput.addEventListener('click', function(e){ e.stopPropagation(); });
+    rankInput.addEventListener('keydown', function(e){ if (e.key === 'Enter') rankInput.blur(); });
+    rankInput.addEventListener('blur', function(){
+      var val = parseInt(rankInput.value, 10);
+      if (!isNaN(val) && val !== order.indexOf(key) + 1){
+        moveSingleToRank(key, val);
+        setDirty(true);
+        renderTable();
+      } else {
+        rankInput.value = String(order.indexOf(key) + 1);
+      }
+    });
+    rankCell.appendChild(plate);
+    rankCell.appendChild(rankInput);
+    tdRank.appendChild(rankCell);
+    tr.appendChild(tdRank);
+
+    // player (name + grayed team, matching the Rankings page)
+    var tdPlayer = document.createElement('td');
+    tdPlayer.className = 'col-player';
+    var nameEl = document.createElement('div');
+    nameEl.className = 'player-name';
+    nameEl.appendChild(document.createTextNode(p.name + ' '));
+    var teamEl = document.createElement('span');
+    teamEl.className = 'player-team';
+    teamEl.textContent = '· ' + p.team;
+    nameEl.appendChild(teamEl);
+    tdPlayer.appendChild(nameEl);
+    tr.appendChild(tdPlayer);
+
+    // position rank pill, colored by position like the Rankings page
+    var tdPos = document.createElement('td');
+    tdPos.className = 'col-pos';
+    var posSpan = document.createElement('span');
+    posSpan.className = 'pos-pill-cell pos-' + p.pos;
+    posSpan.textContent = posRankMap.get(key) || '—';
+    tdPos.appendChild(posSpan);
+    tr.appendChild(tdPos);
+
+    // bye
+    var tdBye = document.createElement('td');
+    tdBye.className = 'bye-cell';
+    tdBye.textContent = p.bye ? p.bye : '—';
+    tr.appendChild(tdBye);
+
+    // 26' Points / PPG / PosRank / OvRank (always 0 -- pending season)
+    var tdPts26 = document.createElement('td');
+    tdPts26.className = 'num-cell pending group-start';
+    tdPts26.textContent = window.PlayerRender.fmtPoints(p.points26);
+    tr.appendChild(tdPts26);
+
+    [['ppg26', 1], ['posrank26', 0], ['ovrank26', 0]].forEach(function(pair){
+      var td = document.createElement('td');
+      td.className = 'num-cell pending';
+      td.textContent = window.PlayerRender.fmt(p[pair[0]], pair[1]);
+      tr.appendChild(td);
+    });
+
+    // 25' Points / PPG / PosRank / OvRank
+    var tdPts25 = document.createElement('td');
+    tdPts25.className = 'num-cell group-start';
+    tdPts25.textContent = window.PlayerRender.fmtPoints(p.points25);
+    tr.appendChild(tdPts25);
+
+    [['ppg25', 1], ['posrank25', 0], ['ovrank25', 0]].forEach(function(pair){
+      var td = document.createElement('td');
+      td.className = 'num-cell';
+      var v = p[pair[0]];
+      td.textContent = (v === 0) ? '0' : window.PlayerRender.fmt(v, pair[1]);
+      tr.appendChild(td);
+    });
+
+    tr.addEventListener('dragstart', function(e){
+      draggingKeys = selected.has(key) && selected.size > 1 ? Array.from(selected) : [key];
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', key);
+    });
+    tr.addEventListener('dragend', function(){
+      tr.classList.remove('dragging');
+      draggingKeys = null;
+      clearDragOverStyles();
+    });
+    tr.addEventListener('dragover', function(e){
+      e.preventDefault();
+      if (!draggingKeys) return;
+      var rect = tr.getBoundingClientRect();
+      var pos = (e.clientY - rect.top) < rect.height / 2 ? 'top' : 'bottom';
+      clearDragOverStyles();
+      tr.classList.add(pos === 'top' ? 'drag-over-top' : 'drag-over-bottom');
+      dragOverKey = key;
+      dragOverPos = pos;
+    });
+    tr.addEventListener('drop', function(e){
+      e.preventDefault();
+      if (!draggingKeys || dragOverKey == null) return;
+      var targetIdx = order.indexOf(dragOverKey);
+      if (dragOverPos === 'bottom') targetIdx++;
+      moveBlockToIndex(draggingKeys, targetIdx);
+      setDirty(true);
+      clearDragOverStyles();
+      renderTable();
+    });
+
+    return tr;
+  }
+
+  function renderTable(){
+    var posRankMap = computePosRanks();
+    var frag = document.createDocumentFragment();
+    order.forEach(function(key, idx){
+      var tr = renderRow(key, idx, posRankMap);
+      if (tr) frag.appendChild(tr);
+    });
+    els.tbody.innerHTML = '';
+    els.tbody.appendChild(frag);
   }
 
   function clearDragOverStyles(){
-    els.listShell.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(function(el){
+    els.tbody.querySelectorAll('.drag-over-top, .drag-over-bottom').forEach(function(el){
       el.classList.remove('drag-over-top', 'drag-over-bottom');
     });
   }
@@ -329,14 +514,14 @@ html, body{ overflow: hidden; }
   function loadMyRankings(){
     if (!window.Auth || !window.Auth.user){
       order = defaultOrder();
-      renderList();
+      renderTable();
       return;
     }
     if (window.Auth.user.isLocalOverride){
       order = loadLocalDraft(window.Auth.profile.username.toLowerCase()) || defaultOrder();
       selected = new Set();
       setDirty(false);
-      renderList();
+      renderTable();
       updateSelectionHint();
       return;
     }
@@ -350,7 +535,7 @@ html, body{ overflow: hidden; }
       }
       selected = new Set();
       setDirty(false);
-      renderList();
+      renderTable();
       updateSelectionHint();
     });
   }
@@ -394,7 +579,7 @@ html, body{ overflow: hidden; }
   });
 
   order = defaultOrder();
-  renderList();
+  renderTable();
   if (window.Auth){
     window.Auth.ready.then(function(){
       applyGate();
