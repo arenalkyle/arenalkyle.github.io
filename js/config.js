@@ -6,5 +6,6 @@ window.APP_CONFIG = {
   SUPABASE_URL: 'https://pfyiasqzeruqnuxgiyoa.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBmeWlhc3F6ZXJ1cW51eGdpeW9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0MDEzMDIsImV4cCI6MjEwMTk3NzMwMn0.RSS4L_yz_hP4qFOBhuoec3JBELuBudrbGqXca2y78Jc',
   LOGIN_FUNCTION_URL: 'https://pfyiasqzeruqnuxgiyoa.supabase.co/functions/v1/login',
+  ESPN_PROXY_URL: 'https://pfyiasqzeruqnuxgiyoa.supabase.co/functions/v1/espn-proxy',
   TURNSTILE_SITE_KEY: '0x4AAAAAAEMlizX4U3_K7LNP',
 };

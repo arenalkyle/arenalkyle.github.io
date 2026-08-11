@@ -73,7 +73,7 @@ button, input{ font-family: inherit; }
 .topbar{
   flex: 0 0 auto; display:flex; justify-content:flex-end; padding: 14px 20px 0;
 }
-.auth-box{ position: relative; }
+.auth-box{ position: relative; display:flex; align-items:center; gap: 6px; }
 .login-btn{
   background: var(--brass); border: 1px solid var(--brass); color: #241209; font-weight: 700;
   font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.04em;

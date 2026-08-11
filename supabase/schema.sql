@@ -379,6 +379,69 @@ $$;
 grant execute on function public.admin_respond_expert_review(uuid, text) to authenticated;
 
 -- ============================================================
+-- fantasy_teams: leagues a user has linked from Sleeper or ESPN
+-- for my-teams.html. Sleeper and ESPN's (unofficial but public)
+-- APIs are both CORS-open and fetched directly client-side from
+-- js/fantasy-platforms.js -- this table only stores enough to know
+-- what to fetch: the league id, and for private ESPN leagues, the
+-- espn_s2/SWID session cookie values the user pastes in themselves.
+-- Yahoo isn't here yet -- it needs a registered Yahoo OAuth app
+-- that doesn't exist. Ordering is just created_at asc, so teams
+-- stay in the order they were added, never reshuffled.
+-- ============================================================
+create table public.fantasy_teams (
+  id         uuid primary key default gen_random_uuid(),
+  owner_id   uuid not null references auth.users(id) on delete cascade,
+  platform   text not null check (platform in ('sleeper','espn')),
+  league_id  text not null,
+  season     text,
+  label      text,
+  espn_swid  text,
+  espn_s2    text,
+  created_at timestamptz not null default now()
+);
+
+create index fantasy_teams_owner_idx on public.fantasy_teams (owner_id, created_at);
+alter table public.fantasy_teams enable row level security;
+
+create policy fantasy_teams_owner_all on public.fantasy_teams
+  for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+grant select, insert, update, delete on public.fantasy_teams to authenticated;
+
+-- ============================================================
+-- analyzed_trades: a lightweight log of trades run through
+-- trade-analyzer.html, shown back as a "recent trades" feed on that
+-- page. FantasyCalc (whose player values power the trade math) has
+-- no public "recent trades" database to pull from, so this is our
+-- own equivalent built from real usage -- every trade with at least
+-- one player on each side is logged automatically, publicly, under
+-- the submitter's username if signed in.
+-- ============================================================
+create table public.analyzed_trades (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid references auth.users(id) on delete set null,
+  side_a       jsonb not null,
+  side_b       jsonb not null,
+  side_a_value integer not null,
+  side_b_value integer not null,
+  verdict      text not null,
+  created_at   timestamptz not null default now()
+);
+
+create index analyzed_trades_created_idx on public.analyzed_trades (created_at desc);
+alter table public.analyzed_trades enable row level security;
+
+create policy analyzed_trades_select_all on public.analyzed_trades
+  for select using (true);
+
+create policy analyzed_trades_insert on public.analyzed_trades
+  for insert with check (user_id is not distinct from auth.uid());
+
+grant select on public.analyzed_trades to anon, authenticated;
+grant insert on public.analyzed_trades to anon, authenticated;
+
+-- ============================================================
 -- login_attempts: backs the per-IP lockout enforced by the
 -- "login" edge function. No RLS policies are added on purpose --
 -- only the edge function (using the service-role key, which

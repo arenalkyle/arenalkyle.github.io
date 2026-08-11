@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Analyzer &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+:root{
+  --trade-terrible: #7a2620;
+  --trade-bad: #c0453a;
+  --trade-fair: #d4b13f;
+  --trade-good: #7a9e4e;
+  --trade-excellent: #8fd15c;
+}
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 32px; max-width: 1000px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.page-head{ margin-bottom: 18px; }
+.page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
+.page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
+
+.panel{ background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+
+.sides-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
+@media (max-width: 700px){ .sides-grid{ grid-template-columns: 1fr; } }
+.side-col h3{ font-family: 'Fraunces', serif; font-size: 15px; color: var(--brass-bright); margin: 0 0 4px; }
+.side-col .side-count{ font-size: 11.5px; color: var(--text-mute); margin-bottom: 10px; }
+.side-col .side-value{
+  margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--text-dim);
+}
+.side-col .side-value strong{ color: var(--brass-bright); font-size: 15px; }
+.unvalued-note{ font-size: 11px; color: var(--text-mute); margin-top: 6px; font-style: italic; }
+
+/* ---------- Fairness bar ---------- */
+.bar-section{ margin-bottom: 8px; }
+.bar-verdict{ text-align:center; font-family: 'Fraunces', serif; font-weight: 700; font-size: 17px; margin-bottom: 10px; }
+.bar-track{
+  position: relative; height: 14px; border-radius: 999px; overflow: visible;
+  background: linear-gradient(to right,
+    var(--trade-terrible) 0%, var(--trade-bad) 25%, var(--trade-fair) 50%, var(--trade-good) 75%, var(--trade-excellent) 100%);
+}
+.bar-pointer{
+  position:absolute; top: 50%; width: 16px; height: 16px; border-radius: 50%; background: var(--text);
+  border: 3px solid var(--bg); transform: translate(-50%, -50%); left: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  transition: left .2s ease;
+}
+.bar-ends{ display:flex; justify-content:space-between; margin-top: 8px; font-size: 11.5px; color: var(--text-mute); }
+.bar-labels{
+  display:flex; justify-content:space-between; margin-top: 4px; font-family:'JetBrains Mono', monospace;
+  font-size: 9.5px; letter-spacing: 0.02em; color: var(--text-mute); text-transform: uppercase;
+}
+
+.analyzer-actions{ display:flex; justify-content:center; margin-top: 20px; }
+.log-trade-btn{
+  background: var(--brass); border: 1px solid var(--brass); color: #241209; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px; padding: 10px 22px; border-radius: 8px; cursor: pointer;
+}
+.log-trade-btn:hover{ filter: brightness(1.08); }
+.log-trade-btn:disabled{ opacity: 0.5; cursor: not-allowed; }
+.log-status{ text-align:center; font-size: 12px; color: var(--text-mute); margin-top: 8px; }
+
+/* ---------- Recent trades feed ---------- */
+.feed-section{ margin-top: 34px; }
+.feed-section h2{ font-family: 'Fraunces', serif; font-size: 17px; color: var(--brass-bright); margin: 0 0 4px; }
+.feed-section .sub{ font-size: 12px; color: var(--text-mute); margin: 0 0 14px; }
+.feed-card{
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+}
+.feed-card-head{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 8px; gap: 10px; }
+.feed-card-who{ font-size: 12px; color: var(--text-mute); }
+.feed-card-who strong{ color: var(--text-dim); }
+.feed-card-when{ font-size: 10.5px; color: var(--text-mute); font-family:'JetBrains Mono', monospace; flex-shrink:0; }
+.feed-sides{ display:flex; gap: 14px; font-size: 12.5px; color: var(--text-dim); margin-bottom: 8px; flex-wrap:wrap; }
+.feed-sides .fs-side{ flex: 1 1 200px; }
+.feed-sides .fs-label{ color: var(--text-mute); font-family:'JetBrains Mono', monospace; font-size: 10px; text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:2px; }
+.feed-bar-track{
+  position: relative; height: 8px; border-radius: 999px;
+  background: linear-gradient(to right,
+    var(--trade-terrible) 0%, var(--trade-bad) 25%, var(--trade-fair) 50%, var(--trade-good) 75%, var(--trade-excellent) 100%);
+}
+.feed-bar-pointer{
+  position:absolute; top: 50%; width: 10px; height: 10px; border-radius: 50%; background: var(--text);
+  border: 2px solid var(--bg); transform: translate(-50%, -50%);
+}
+.feed-verdict{ font-size: 11px; color: var(--text-mute); margin-top: 6px; text-align:right; }
+.feed-empty{ text-align:center; padding: 30px; color: var(--text-mute); font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+      <div class="page-head">
+        <h1>Trade Analyzer</h1>
+        <p>Add up to 10 players per side to see how a trade shakes out, powered by FantasyCalc values.</p>
+      </div>
+
+      <div class="panel">
+        <div class="sides-grid">
+          <div class="side-col">
+            <h3>Side A</h3>
+            <div class="side-count" id="countA">0 / 10 players</div>
+            <div id="pickerA"></div>
+            <div class="side-value">Total value: <strong id="valueA">0</strong></div>
+            <div class="unvalued-note" id="unvaluedA"></div>
+          </div>
+          <div class="side-col">
+            <h3>Side B</h3>
+            <div class="side-count" id="countB">0 / 10 players</div>
+            <div id="pickerB"></div>
+            <div class="side-value">Total value: <strong id="valueB">0</strong></div>
+            <div class="unvalued-note" id="unvaluedB"></div>
+          </div>
+        </div>
+
+        <div class="bar-section">
+          <div class="bar-verdict" id="barVerdict">Add players to both sides</div>
+          <div class="bar-track"><div class="bar-pointer" id="barPointer"></div></div>
+          <div class="bar-labels">
+            <span>Terrible</span><span>Not Good</span><span>Fair</span><span>Good</span><span>Excellent</span>
+          </div>
+          <div class="bar-ends"><span>&larr; Favors Side B</span><span>Favors Side A &rarr;</span></div>
+        </div>
+
+        <div class="analyzer-actions">
+          <button class="log-trade-btn" id="logTradeBtn" disabled>Add to Recent Trades</button>
+        </div>
+        <div class="log-status" id="logStatus"></div>
+      </div>
+
+      <div class="feed-section">
+        <h2>Recent Trades</h2>
+        <p class="sub">Trades other users have run through this analyzer, newest first.</p>
+        <div id="feedList"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/players-data.js"></script>
+<script src="js/player-picker.js"></script>
+<script>
+(function(){
+  var MAX_PER_SIDE = 10;
+
+  var playersByKey = {};
+  window.__PLAYERS__.forEach(function(p){ playersByKey[window.playerKey(p)] = p; });
+
+  function normName(name){ return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+  var valuesByName = {};
+  var valuesLoaded = false;
+
+  var els = {
+    countA: document.getElementById('countA'),
+    countB: document.getElementById('countB'),
+    valueA: document.getElementById('valueA'),
+    valueB: document.getElementById('valueB'),
+    unvaluedA: document.getElementById('unvaluedA'),
+    unvaluedB: document.getElementById('unvaluedB'),
+    barVerdict: document.getElementById('barVerdict'),
+    barPointer: document.getElementById('barPointer'),
+    logBtn: document.getElementById('logTradeBtn'),
+    logStatus: document.getElementById('logStatus'),
+    feedList: document.getElementById('feedList')
+  };
+
+  var pickerA = window.PlayerPicker.create(document.getElementById('pickerA'), { max: MAX_PER_SIDE, onChange: recompute });
+  var pickerB = window.PlayerPicker.create(document.getElementById('pickerB'), { max: MAX_PER_SIDE, onChange: recompute });
+
+  fetch('https://api.fantasycalc.com/values/current?isDynasty=false&numQbs=1&numTeams=12&ppr=1')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      (data || []).forEach(function(entry){
+        var name = entry.player && entry.player.name;
+        if (name) valuesByName[normName(name)] = entry.value;
+      });
+      valuesLoaded = true;
+      recompute();
+    })
+    .catch(function(){
+      els.barVerdict.textContent = 'Could not load trade values right now.';
+    });
+
+  function sideDetails(keys){
+    var total = 0, unvalued = [];
+    keys.forEach(function(key){
+      var p = playersByKey[key];
+      if (!p) return;
+      var v = valuesByName[normName(p.name)];
+      if (v === undefined) { unvalued.push(p.name); return; }
+      total += v;
+    });
+    return { total: total, unvalued: unvalued };
+  }
+
+  function pointerPercent(diffPct){
+    // clamp diffPct to [-50, 50] and map linearly to [0, 100] across the bar
+    var clamped = Math.max(-50, Math.min(50, diffPct));
+    return ((clamped + 50) / 100) * 100;
+  }
+
+  function verdictLabel(diffPct){
+    if (diffPct <= -30) return 'Terrible Trade for Side A';
+    if (diffPct <= -10) return 'Not Good for Side A';
+    if (diffPct < 10) return 'Fair Trade';
+    if (diffPct < 30) return 'Good Trade for Side A';
+    return 'Excellent Trade for Side A';
+  }
+
+  function verdictKey(diffPct){
+    if (diffPct <= -30) return 'terrible';
+    if (diffPct <= -10) return 'not_good';
+    if (diffPct < 10) return 'fair';
+    if (diffPct < 30) return 'good';
+    return 'excellent';
+  }
+
+  var lastComputed = null;
+
+  function recompute(){
+    var keysA = pickerA.getSelected();
+    var keysB = pickerB.getSelected();
+    els.countA.textContent = keysA.length + ' / ' + MAX_PER_SIDE + ' players';
+    els.countB.textContent = keysB.length + ' / ' + MAX_PER_SIDE + ' players';
+
+    var a = sideDetails(keysA);
+    var b = sideDetails(keysB);
+    els.valueA.textContent = a.total.toLocaleString();
+    els.valueB.textContent = b.total.toLocaleString();
+    els.unvaluedA.textContent = a.unvalued.length ? ('No value data for: ' + a.unvalued.join(', ')) : '';
+    els.unvaluedB.textContent = b.unvalued.length ? ('No value data for: ' + b.unvalued.join(', ')) : '';
+
+    if (!valuesLoaded || keysA.length === 0 || keysB.length === 0){
+      els.barVerdict.textContent = valuesLoaded ? 'Add players to both sides' : 'Loading trade values…';
+      els.barPointer.style.left = '50%';
+      els.logBtn.disabled = true;
+      lastComputed = null;
+      return;
+    }
+
+    var avg = (a.total + b.total) / 2 || 1;
+    var diffPct = ((a.total - b.total) / avg) * 100;
+
+    els.barVerdict.textContent = verdictLabel(diffPct);
+    els.barPointer.style.left = pointerPercent(diffPct) + '%';
+    els.logBtn.disabled = false;
+    lastComputed = { keysA: keysA, keysB: keysB, a: a, b: b, diffPct: diffPct, verdict: verdictKey(diffPct) };
+  }
+
+  function tradeRow(key){
+    var p = playersByKey[key];
+    return p ? { player_key: key, name: p.name, team: p.team, pos: p.pos, value: valuesByName[normName(p.name)] || 0 } : null;
+  }
+
+  els.logBtn.addEventListener('click', function(){
+    if (!lastComputed) return;
+    els.logBtn.disabled = true;
+    els.logStatus.textContent = 'Saving…';
+
+    var row = {
+      user_id: (window.Auth && window.Auth.user) ? window.Auth.user.id : null,
+      side_a: lastComputed.keysA.map(tradeRow).filter(Boolean),
+      side_b: lastComputed.keysB.map(tradeRow).filter(Boolean),
+      side_a_value: Math.round(lastComputed.a.total),
+      side_b_value: Math.round(lastComputed.b.total),
+      verdict: lastComputed.verdict
+    };
+
+    window.sb.from('analyzed_trades').insert(row).then(function(res){
+      els.logBtn.disabled = false;
+      if (res.error){
+        els.logStatus.textContent = 'Could not save: ' + res.error.message;
+        return;
+      }
+      els.logStatus.textContent = 'Added to Recent Trades.';
+      loadFeed();
+    });
+  });
+
+  // ---------------- Recent trades feed ----------------
+  function fmtNames(side){
+    return side.map(function(p){ return p.name; }).join(', ') || '—';
+  }
+
+  function fmtTime(iso){
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  function verdictText(key){
+    return { terrible: 'Terrible Trade', not_good: 'Not Good', fair: 'Fair Trade', good: 'Good Trade', excellent: 'Excellent Trade' }[key] || key;
+  }
+
+  function feedPointerPercent(row){
+    var avg = (row.side_a_value + row.side_b_value) / 2 || 1;
+    var diffPct = ((row.side_a_value - row.side_b_value) / avg) * 100;
+    return pointerPercent(diffPct);
+  }
+
+  function renderFeed(rows){
+    els.feedList.innerHTML = '';
+    if (!rows.length){
+      els.feedList.innerHTML = '<div class="feed-empty">No trades logged yet — be the first.</div>';
+      return;
+    }
+    rows.forEach(function(row){
+      var card = document.createElement('div');
+      card.className = 'feed-card';
+      card.innerHTML =
+        '<div class="feed-card-head">' +
+          '<span class="feed-card-who"><strong>' + (row.username || 'Anonymous') + '</strong> analyzed a trade</span>' +
+          '<span class="feed-card-when">' + fmtTime(row.created_at) + '</span>' +
+        '</div>' +
+        '<div class="feed-sides">' +
+          '<div class="fs-side"><span class="fs-label">Side A (' + row.side_a_value.toLocaleString() + ')</span>' + fmtNames(row.side_a) + '</div>' +
+          '<div class="fs-side"><span class="fs-label">Side B (' + row.side_b_value.toLocaleString() + ')</span>' + fmtNames(row.side_b) + '</div>' +
+        '</div>' +
+        '<div class="feed-bar-track"><div class="feed-bar-pointer" style="left:' + feedPointerPercent(row) + '%"></div></div>' +
+        '<div class="feed-verdict">' + verdictText(row.verdict) + '</div>';
+      els.feedList.appendChild(card);
+    });
+  }
+
+  function loadFeed(){
+    window.sb.from('analyzed_trades').select('*').order('created_at', { ascending: false }).limit(20).then(function(res){
+      var rows = res.data || [];
+      var userIds = Array.from(new Set(rows.map(function(r){ return r.user_id; }).filter(Boolean)));
+      if (!userIds.length){ renderFeed(rows); return; }
+      window.sb.from('profiles').select('id,username').in('id', userIds).then(function(profRes){
+        var usernameById = {};
+        (profRes.data || []).forEach(function(p){ usernameById[p.id] = p.username; });
+        rows.forEach(function(r){ r.username = r.user_id ? usernameById[r.user_id] : null; });
+        renderFeed(rows);
+      });
+    });
+  }
+
+  loadFeed();
+})();
+</script>
+</body>
+</html>

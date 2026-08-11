@@ -14,17 +14,16 @@
 .page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
 .page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
 
-/* ---------- Purchase panels (scroll / slide, works on mobile too) ---------- */
+/* ---------- Purchase panels: 1x4 on wide screens, 2x2 below that ---------- */
 .panel-scroll{
-  display:flex; gap: 16px; overflow-x: auto; padding: 4px 4px 14px; scroll-snap-type: x proximity;
-  -webkit-overflow-scrolling: touch; cursor: grab;
+  display:grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 4px;
 }
-.panel-scroll.dragging{ cursor: grabbing; user-select: none; }
-.panel-scroll::-webkit-scrollbar{ height: 8px; }
-.panel-scroll::-webkit-scrollbar-thumb{ background: var(--border); border-radius: 4px; }
+@media (max-width: 860px){
+  .panel-scroll{ grid-template-columns: repeat(2, 1fr); }
+}
 
 .review-panel{
-  flex: 0 0 250px; scroll-snap-align: start; background: var(--panel); border: 1px solid var(--border);
+  background: var(--panel); border: 1px solid var(--border);
   border-radius: 12px; padding: 20px; display:flex; flex-direction:column; align-items:center; text-align:center;
 }
 .review-panel-icon{
@@ -227,22 +226,6 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
     respondSendBtn: document.getElementById('respondSendBtn'),
     respondModalClose: document.getElementById('respondModalClose')
   };
-
-  // ---------------- Drag-to-scroll for the panel row (desktop mouse) ----------------
-  (function(){
-    var down = false, startX = 0, startScroll = 0, moved = false;
-    els.panelScroll.addEventListener('mousedown', function(e){
-      down = true; moved = false; startX = e.pageX; startScroll = els.panelScroll.scrollLeft;
-      els.panelScroll.classList.add('dragging');
-    });
-    window.addEventListener('mouseup', function(){ down = false; els.panelScroll.classList.remove('dragging'); });
-    window.addEventListener('mousemove', function(e){
-      if (!down) return;
-      moved = true;
-      els.panelScroll.scrollLeft = startScroll - (e.pageX - startX);
-    });
-    els.panelScroll.addEventListener('click', function(e){ if (moved) e.preventDefault(); }, true);
-  })();
 
   // ---------------- Request modal ----------------
   var currentType = null;

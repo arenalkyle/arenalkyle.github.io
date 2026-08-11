@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Teams &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 24px; max-width: 1000px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.page-head{ margin-bottom: 18px; }
+.page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
+.page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
+
+.gate-block{ display:none; flex-direction: column; align-items:center; justify-content:center; gap: 12px; padding: 80px 20px; text-align:center; }
+.gate-block.show{ display:flex; }
+.gate-block p{ font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-mute); max-width: 360px; }
+#teamsContent{ display:none; }
+#teamsContent.show{ display:block; }
+
+/* ---------- Team chip row ---------- */
+.team-chip-row{ display:flex; flex-wrap:wrap; gap: 10px; margin-bottom: 22px; }
+.team-chip{
+  display:inline-flex; align-items:center; gap: 8px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 999px; padding: 8px 8px 8px 16px; cursor:pointer; font-size: 13px; color: var(--text-dim);
+  transition: border-color .12s ease, color .12s ease;
+}
+.team-chip:hover{ border-color: var(--brass-dim); }
+.team-chip.selected{ border-color: var(--brass); color: var(--text); background: rgba(201,161,90,0.1); }
+.team-chip .platform-tag{
+  font-family:'JetBrains Mono', monospace; font-size: 9.5px; text-transform:uppercase; letter-spacing:.05em;
+  color: var(--text-mute);
+}
+.team-chip-remove{
+  background: var(--panel-alt); border:none; color: var(--text-mute); font-size: 13px; line-height:1; cursor:pointer;
+  width: 22px; height: 22px; display:flex; align-items:center; justify-content:center; border-radius: 50%; flex-shrink:0;
+}
+.team-chip-remove:hover{ background: var(--panel-hi); color: var(--danger); }
+.add-team-chip{
+  display:inline-flex; align-items:center; gap: 6px; background:none; border: 1px dashed var(--border);
+  border-radius: 999px; padding: 8px 18px; cursor:pointer; font-size: 13px; color: var(--brass);
+  font-family: 'JetBrains Mono', monospace;
+}
+.add-team-chip:hover{ border-color: var(--brass); color: var(--brass-bright); }
+
+.empty-state{
+  padding: 60px 20px; text-align:center; color: var(--text-mute); font-size: 13px;
+  border: 1px dashed var(--border); border-radius: 12px;
+}
+
+/* ---------- Standings ---------- */
+.standings-panel{ background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+.standings-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom: 12px; gap: 10px; }
+.standings-head h2{ font-family: 'Fraunces', serif; font-size: 17px; color: var(--brass-bright); margin: 0; }
+.standings-status{ font-size: 12px; color: var(--text-mute); }
+.standings-status.error{ color: var(--danger); }
+
+.standings-row{
+  border: 1px solid var(--border-soft); border-radius: 9px; margin-bottom: 8px; overflow:hidden; background: var(--panel-alt);
+}
+.standings-row-head{
+  display:flex; align-items:center; gap: 12px; padding: 12px 14px; cursor:pointer;
+}
+.standings-row-head:hover{ background: var(--panel-hi); }
+.standings-rank{
+  font-family: 'Fraunces', serif; font-weight: 900; font-size: 15px; color: var(--brass); min-width: 22px;
+}
+.standings-name{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 14.5px; color: var(--text); flex: 1 1 auto; }
+.standings-record{ font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-mute); }
+.standings-caret{ color: var(--text-mute); font-size: 11px; transition: transform .15s ease; }
+.standings-row.open .standings-caret{ transform: rotate(180deg); }
+
+.roster-panel{ display:none; padding: 4px 14px 14px; border-top: 1px solid var(--border-soft); }
+.standings-row.open .roster-panel{ display:block; }
+
+.sort-toggle{ display:flex; gap: 8px; margin: 10px 0 12px; }
+.sort-btn{
+  background: var(--panel); border: 1px solid var(--border); color: var(--text-dim); font-size: 11.5px;
+  font-family: 'JetBrains Mono', monospace; padding: 6px 12px; border-radius: 999px; cursor:pointer;
+}
+.sort-btn.active{ border-color: var(--brass); color: var(--brass-bright); background: rgba(201,161,90,0.1); }
+
+.roster-group-label{
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-mute); margin: 12px 0 6px;
+}
+.roster-player-row{ display:flex; align-items:center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border-soft); }
+.roster-player-row:last-child{ border-bottom:none; }
+.avatar-wrap{
+  width: 28px; height: 28px; border-radius: 50%; overflow: hidden; background: var(--panel-alt);
+  border: 1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  position: relative;
+}
+.avatar-wrap img{ width:100%; height:100%; object-fit: cover; object-position: top center; display:block; }
+.avatar-wrap.logo img{ object-fit: contain; padding: 3px; background: #17100e; }
+.avatar-wrap img.hidden{ display:none; }
+.avatar-fallback{
+  width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  font-family:'Fraunces', serif; font-weight:700; font-size:10px; color: var(--brass-dim);
+  background: var(--panel-alt);
+}
+.roster-player-name{ font-size: 13px; color: var(--text); flex: 1 1 auto; }
+.roster-player-name .rp-team{ color: var(--text-mute); font-weight: 500; }
+.roster-pos-pill{
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.03em;
+  color: var(--brass); background: rgba(201,161,90,0.12); border: 1px solid var(--border-soft);
+  border-radius: 5px; padding: 2px 6px; min-width: 40px; text-align:center;
+}
+.roster-rank{ font-family:'JetBrains Mono', monospace; font-size: 12px; color: var(--text-dim); min-width: 36px; text-align:right; }
+
+/* ---------- Add Team modal ---------- */
+.modal-box.team-modal{ max-width: 460px; text-align:left; }
+.modal-box.team-modal .modal-title{ text-align:left; margin-bottom: 14px; }
+.platform-tabs{ display:flex; gap: 8px; margin-bottom: 16px; }
+.platform-tab{
+  flex: 1 1 auto; background: var(--panel-alt); border: 1px solid var(--border); color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px; padding: 9px; border-radius: 8px; cursor:pointer;
+  text-align:center;
+}
+.platform-tab.active{ border-color: var(--brass); color: var(--brass-bright); background: rgba(201,161,90,0.1); }
+.platform-tab:disabled{ opacity: 0.45; cursor: not-allowed; }
+.platform-tab .soon{ display:block; font-size: 9.5px; color: var(--text-mute); margin-top: 2px; }
+.helper-text{ font-size: 11.5px; color: var(--text-mute); line-height: 1.5; margin: -4px 0 12px; }
+.helper-text a{ color: var(--brass); }
+.private-toggle{ display:flex; align-items:center; gap: 8px; margin: 4px 0 12px; font-size: 12.5px; color: var(--text-dim); }
+.private-toggle input{ accent-color: var(--brass); width: 15px; height: 15px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+      <div class="page-head">
+        <h1>My Teams</h1>
+        <p>Link your leagues to see standings and rosters.</p>
+      </div>
+
+      <div class="gate-block" id="gateBlock">
+        <p>Log in to link and view your fantasy teams.</p>
+        <button class="login-btn" id="gateLoginBtn">Log In</button>
+      </div>
+
+      <div id="teamsContent">
+        <div class="team-chip-row" id="teamChipRow">
+          <button class="add-team-chip" id="addTeamBtn">+ Add new team</button>
+        </div>
+        <div class="empty-state" id="emptyState">No teams linked yet &mdash; add one above.</div>
+        <div class="standings-panel" id="standingsPanel" style="display:none">
+          <div class="standings-head">
+            <h2 id="leagueNameHeading"></h2>
+            <span class="standings-status" id="standingsStatus"></span>
+          </div>
+          <div id="standingsList"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="addTeamModal">
+  <div class="modal-box team-modal" id="addTeamModalBox">
+    <button class="modal-close" id="addTeamModalClose" aria-label="Close">&times;</button>
+    <h2 class="modal-title">Add a Team</h2>
+    <div class="platform-tabs">
+      <button class="platform-tab active" data-platform="sleeper">Sleeper</button>
+      <button class="platform-tab" data-platform="espn">ESPN</button>
+      <button class="platform-tab" data-platform="yahoo" disabled>Yahoo<span class="soon">Coming soon</span></button>
+    </div>
+
+    <div id="addTeamSleeper">
+      <p class="helper-text">Find your League ID from your league's Sleeper URL or app settings &mdash; it's the long number after <code>/league/</code>.</p>
+      <div class="modal-field">
+        <label>League ID</label>
+        <input type="text" id="sleeperLeagueId" placeholder="e.g. 917418652345987000" autocomplete="off">
+        <div class="field-error" id="sleeperLeagueIdError"></div>
+      </div>
+    </div>
+
+    <div id="addTeamEspn" style="display:none">
+      <p class="helper-text">Find your League ID in your ESPN league's URL &mdash; the number after <code>leagueId=</code>.</p>
+      <div class="modal-field">
+        <label>League ID</label>
+        <input type="text" id="espnLeagueId" placeholder="e.g. 123456" autocomplete="off">
+      </div>
+      <div class="modal-field">
+        <label>Season</label>
+        <input type="text" id="espnSeason" placeholder="e.g. 2026" autocomplete="off">
+      </div>
+      <label class="private-toggle">
+        <input type="checkbox" id="espnPrivateToggle">
+        This is a private league
+      </label>
+      <div id="espnPrivateFields" style="display:none">
+        <p class="helper-text">
+          While logged into ESPN in your browser, open DevTools &rarr; Application/Storage &rarr; Cookies &rarr;
+          espn.com, and copy the values of <code>espn_s2</code> and <code>SWID</code> (including the curly braces).
+        </p>
+        <div class="modal-field">
+          <label>espn_s2</label>
+          <input type="text" id="espnS2" autocomplete="off">
+        </div>
+        <div class="modal-field">
+          <label>SWID</label>
+          <input type="text" id="espnSwid" placeholder="{XXXXXXXX-XXXX-...}" autocomplete="off">
+        </div>
+      </div>
+      <div class="field-error" id="espnError"></div>
+    </div>
+
+    <button class="modal-submit" id="addTeamSubmit">Add Team</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/players-data.js"></script>
+<script src="js/player-render.js"></script>
+<script src="js/fantasy-platforms.js"></script>
+<script>
+(function(){
+  var els = {
+    gate: document.getElementById('gateBlock'),
+    gateLoginBtn: document.getElementById('gateLoginBtn'),
+    content: document.getElementById('teamsContent'),
+    chipRow: document.getElementById('teamChipRow'),
+    addTeamBtn: document.getElementById('addTeamBtn'),
+    emptyState: document.getElementById('emptyState'),
+    standingsPanel: document.getElementById('standingsPanel'),
+    leagueNameHeading: document.getElementById('leagueNameHeading'),
+    standingsStatus: document.getElementById('standingsStatus'),
+    standingsList: document.getElementById('standingsList'),
+
+    addTeamModal: document.getElementById('addTeamModal'),
+    addTeamModalClose: document.getElementById('addTeamModalClose'),
+    addTeamSleeper: document.getElementById('addTeamSleeper'),
+    addTeamEspn: document.getElementById('addTeamEspn'),
+    sleeperLeagueId: document.getElementById('sleeperLeagueId'),
+    sleeperLeagueIdError: document.getElementById('sleeperLeagueIdError'),
+    espnLeagueId: document.getElementById('espnLeagueId'),
+    espnSeason: document.getElementById('espnSeason'),
+    espnPrivateToggle: document.getElementById('espnPrivateToggle'),
+    espnPrivateFields: document.getElementById('espnPrivateFields'),
+    espnS2: document.getElementById('espnS2'),
+    espnSwid: document.getElementById('espnSwid'),
+    espnError: document.getElementById('espnError'),
+    addTeamSubmit: document.getElementById('addTeamSubmit')
+  };
+  els.gateLoginBtn.addEventListener('click', function(){ window.Auth.openLogin(); });
+
+  // ---------------- Consensus rest-of-season ranks (reuses kyle/wesley avg, same as rankings-editor.html's defaultOrder) ----------------
+  var playersByNormalName = {};
+  var consensusRank = {}; // normalized name+team -> { overall, pos }
+
+  function normName(name){ return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+  (function buildConsensus(){
+    var ordered = window.__PLAYERS__.slice().sort(function(a, b){
+      var av = [a.kyle, a.wesley].filter(function(v){ return v !== null && v !== undefined; });
+      var bv = [b.kyle, b.wesley].filter(function(v){ return v !== null && v !== undefined; });
+      var aAvg = av.length ? av.reduce(function(s, v){ return s + v; }, 0) / av.length : null;
+      var bAvg = bv.length ? bv.reduce(function(s, v){ return s + v; }, 0) / bv.length : null;
+      if (aAvg === null && bAvg === null) return a.name.localeCompare(b.name);
+      if (aAvg === null) return 1;
+      if (bAvg === null) return -1;
+      return aAvg - bAvg;
+    });
+    var posCounts = {};
+    ordered.forEach(function(p, idx){
+      posCounts[p.pos] = (posCounts[p.pos] || 0) + 1;
+      var key = normName(p.name) + '|' + p.team;
+      consensusRank[key] = { overall: idx + 1, pos: posCounts[p.pos] };
+      playersByNormalName[normName(p.name)] = p;
+    });
+  })();
+
+  function matchPlayer(rosterPlayer){
+    var exact = consensusRank[normName(rosterPlayer.name) + '|' + rosterPlayer.team];
+    if (exact) return { player: playersByNormalName[normName(rosterPlayer.name)], rank: exact };
+    var p = playersByNormalName[normName(rosterPlayer.name)];
+    if (p) return { player: p, rank: consensusRank[normName(p.name) + '|' + p.team] };
+    return null;
+  }
+
+  // ---------------- Team chip row / storage ----------------
+  var myTeams = [];
+  var selectedTeamId = null;
+  var photoObserver = window.PlayerRender.createPhotoObserver();
+
+  function renderChips(){
+    els.chipRow.innerHTML = '';
+    myTeams.forEach(function(t){
+      var chip = document.createElement('div');
+      chip.className = 'team-chip' + (t.id === selectedTeamId ? ' selected' : '');
+      chip.innerHTML = '<span class="platform-tag">' + t.platform + '</span><span>' + (t.label || t.league_id) + '</span>';
+      chip.addEventListener('click', function(){ selectTeam(t); });
+      var x = document.createElement('button');
+      x.className = 'team-chip-remove';
+      x.textContent = '×';
+      x.addEventListener('click', function(e){ e.stopPropagation(); removeTeam(t.id); });
+      chip.appendChild(x);
+      els.chipRow.appendChild(chip);
+    });
+    els.chipRow.appendChild(els.addTeamBtn);
+    els.emptyState.style.display = myTeams.length ? 'none' : '';
+  }
+
+  function loadMyTeams(){
+    if (!window.Auth || !window.Auth.user) return;
+    window.sb.from('fantasy_teams').select('*').eq('owner_id', window.Auth.user.id).order('created_at').then(function(res){
+      myTeams = res.data || [];
+      renderChips();
+    });
+  }
+
+  function removeTeam(id){
+    window.sb.from('fantasy_teams').delete().eq('id', id).then(function(){
+      if (selectedTeamId === id){ selectedTeamId = null; els.standingsPanel.style.display = 'none'; }
+      loadMyTeams();
+    });
+  }
+
+  // ---------------- Standings / roster ----------------
+  function record(t){ return t.wins + '-' + t.losses + (t.ties ? ('-' + t.ties) : ''); }
+
+  function powerScore(team){
+    var total = window.__PLAYERS__.length;
+    return team.roster.reduce(function(sum, rp){
+      var m = matchPlayer(rp);
+      if (!m || !m.rank) return sum;
+      return sum + Math.max(0, total - m.rank.overall);
+    }, 0);
+  }
+
+  function renderRoster(container, team, sortMode){
+    var withRank = team.roster.map(function(rp){
+      var m = matchPlayer(rp);
+      return { rp: rp, overall: m && m.rank ? m.rank.overall : null, posRank: m && m.rank ? m.rank.pos : null, matched: m ? m.player : null };
+    });
+
+    container.innerHTML = '';
+
+    if (sortMode === 'overall'){
+      withRank.sort(function(a, b){
+        if (a.overall === null) return 1;
+        if (b.overall === null) return -1;
+        return a.overall - b.overall;
+      });
+      withRank.forEach(function(item){ container.appendChild(renderPlayerRow(item)); });
+    } else {
+      var order = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
+      order.forEach(function(pos){
+        var group = withRank.filter(function(item){ return item.rp.pos === pos; });
+        if (!group.length) return;
+        group.sort(function(a, b){
+          if (a.posRank === null) return 1;
+          if (b.posRank === null) return -1;
+          return a.posRank - b.posRank;
+        });
+        var label = document.createElement('div');
+        label.className = 'roster-group-label';
+        label.textContent = pos === 'DST' ? 'D/ST' : pos;
+        container.appendChild(label);
+        group.forEach(function(item){ container.appendChild(renderPlayerRow(item)); });
+      });
+    }
+  }
+
+  function renderPlayerRow(item){
+    var row = document.createElement('div');
+    row.className = 'roster-player-row';
+
+    if (item.matched){
+      row.appendChild(window.PlayerRender.buildAvatarWrap(item.matched, photoObserver));
+    } else {
+      var avatar = document.createElement('div');
+      avatar.className = 'avatar-wrap';
+      avatar.innerHTML = '<span class="avatar-fallback">' + (item.rp.pos || '?') + '</span>';
+      row.appendChild(avatar);
+    }
+
+    var name = document.createElement('div');
+    name.className = 'roster-player-name';
+    name.innerHTML = item.rp.name + ' <span class="rp-team">&middot; ' + item.rp.team + '</span>';
+    row.appendChild(name);
+
+    var pos = document.createElement('span');
+    pos.className = 'roster-pos-pill';
+    pos.textContent = (item.rp.pos === 'DST' ? 'D/ST' : item.rp.pos) + (item.posRank ? item.posRank : '');
+    row.appendChild(pos);
+
+    var rank = document.createElement('span');
+    rank.className = 'roster-rank';
+    rank.textContent = item.overall ? ('#' + item.overall + ' ROS') : '—';
+    row.appendChild(rank);
+
+    return row;
+  }
+
+  function renderStandings(league){
+    els.leagueNameHeading.textContent = league.leagueName;
+    var teams = league.teams.slice().sort(function(a, b){ return powerScore(b) - powerScore(a); });
+
+    els.standingsList.innerHTML = '';
+    teams.forEach(function(team, idx){
+      var row = document.createElement('div');
+      row.className = 'standings-row';
+
+      var head = document.createElement('div');
+      head.className = 'standings-row-head';
+      head.innerHTML =
+        '<span class="standings-rank">' + (idx + 1) + '.</span>' +
+        '<span class="standings-name">' + team.teamName + '</span>' +
+        '<span class="standings-record">(' + record(team) + ')</span>' +
+        '<span class="standings-caret">&#9662;</span>';
+
+      var rosterPanel = document.createElement('div');
+      rosterPanel.className = 'roster-panel';
+      var sortToggle = document.createElement('div');
+      sortToggle.className = 'sort-toggle';
+      var byOverallBtn = document.createElement('button');
+      byOverallBtn.className = 'sort-btn active';
+      byOverallBtn.textContent = 'By Overall';
+      var byPosBtn = document.createElement('button');
+      byPosBtn.className = 'sort-btn';
+      byPosBtn.textContent = 'By Position';
+      sortToggle.appendChild(byOverallBtn);
+      sortToggle.appendChild(byPosBtn);
+      rosterPanel.appendChild(sortToggle);
+      var rosterList = document.createElement('div');
+      rosterPanel.appendChild(rosterList);
+
+      var currentMode = 'overall';
+      function refreshRoster(){ renderRoster(rosterList, team, currentMode); }
+      byOverallBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        currentMode = 'overall';
+        byOverallBtn.classList.add('active'); byPosBtn.classList.remove('active');
+        refreshRoster();
+      });
+      byPosBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        currentMode = 'position';
+        byPosBtn.classList.add('active'); byOverallBtn.classList.remove('active');
+        refreshRoster();
+      });
+
+      head.addEventListener('click', function(){
+        var wasOpen = row.classList.contains('open');
+        els.standingsList.querySelectorAll('.standings-row.open').forEach(function(r){ r.classList.remove('open'); });
+        if (!wasOpen){
+          row.classList.add('open');
+          refreshRoster();
+        }
+      });
+
+      row.appendChild(head);
+      row.appendChild(rosterPanel);
+      els.standingsList.appendChild(row);
+    });
+  }
+
+  document.addEventListener('click', function(e){
+    if (!e.target.closest('.standings-row')) {
+      document.querySelectorAll('.standings-row.open').forEach(function(r){ r.classList.remove('open'); });
+    }
+  });
+
+  function selectTeam(team){
+    selectedTeamId = team.id;
+    renderChips();
+    els.standingsPanel.style.display = '';
+    els.leagueNameHeading.textContent = team.label || team.league_id;
+    els.standingsList.innerHTML = '';
+    els.standingsStatus.textContent = 'Loading…';
+    els.standingsStatus.classList.remove('error');
+
+    var promise = team.platform === 'sleeper'
+      ? window.FantasyPlatforms.fetchSleeperLeague(team.league_id)
+      : window.FantasyPlatforms.fetchEspnLeague(team.league_id, team.season, team.espn_s2, team.espn_swid);
+
+    promise.then(function(league){
+      els.standingsStatus.textContent = '';
+      renderStandings(league);
+    }).catch(function(err){
+      els.standingsStatus.textContent = err.message || 'Could not load this league.';
+      els.standingsStatus.classList.add('error');
+    });
+  }
+
+  // ---------------- Add Team modal ----------------
+  function openAddTeamModal(){
+    els.sleeperLeagueId.value = '';
+    els.espnLeagueId.value = '';
+    els.espnSeason.value = String(new Date().getFullYear());
+    els.espnPrivateToggle.checked = false;
+    els.espnPrivateFields.style.display = 'none';
+    els.espnS2.value = '';
+    els.espnSwid.value = '';
+    els.sleeperLeagueIdError.textContent = '';
+    els.espnError.textContent = '';
+    setPlatformTab('sleeper');
+    els.addTeamModal.classList.add('open');
+  }
+  function closeAddTeamModal(){ els.addTeamModal.classList.remove('open'); }
+
+  var activePlatform = 'sleeper';
+  function setPlatformTab(platform){
+    activePlatform = platform;
+    document.querySelectorAll('.platform-tab').forEach(function(tab){
+      tab.classList.toggle('active', tab.getAttribute('data-platform') === platform);
+    });
+    els.addTeamSleeper.style.display = platform === 'sleeper' ? '' : 'none';
+    els.addTeamEspn.style.display = platform === 'espn' ? '' : 'none';
+  }
+  document.querySelectorAll('.platform-tab').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      if (tab.disabled) return;
+      setPlatformTab(tab.getAttribute('data-platform'));
+    });
+  });
+
+  els.espnPrivateToggle.addEventListener('change', function(){
+    els.espnPrivateFields.style.display = els.espnPrivateToggle.checked ? '' : 'none';
+  });
+
+  els.addTeamBtn.addEventListener('click', openAddTeamModal);
+  els.addTeamModalClose.addEventListener('click', closeAddTeamModal);
+  els.addTeamModal.addEventListener('click', function(e){ if (e.target === els.addTeamModal) closeAddTeamModal(); });
+
+  function insertTeam(row){
+    return window.sb.from('fantasy_teams').insert(row).then(function(res){
+      if (res.error) throw res.error;
+      loadMyTeams();
+      closeAddTeamModal();
+    });
+  }
+
+  els.addTeamSubmit.addEventListener('click', function(){
+    els.sleeperLeagueIdError.textContent = '';
+    els.espnError.textContent = '';
+    els.addTeamSubmit.disabled = true;
+    els.addTeamSubmit.textContent = 'Adding…';
+
+    function reset(){ els.addTeamSubmit.disabled = false; els.addTeamSubmit.textContent = 'Add Team'; }
+
+    if (activePlatform === 'sleeper'){
+      var leagueId = els.sleeperLeagueId.value.trim();
+      if (!leagueId){ els.sleeperLeagueIdError.textContent = 'Enter a league ID.'; els.sleeperLeagueIdError.classList.add('show'); reset(); return; }
+      window.FantasyPlatforms.fetchSleeperLeague(leagueId).then(function(league){
+        return insertTeam({ owner_id: window.Auth.user.id, platform: 'sleeper', league_id: leagueId, label: league.leagueName });
+      }).catch(function(err){
+        els.sleeperLeagueIdError.textContent = err.message || 'Could not find that league.';
+        els.sleeperLeagueIdError.classList.add('show');
+      }).then(reset);
+    } else if (activePlatform === 'espn'){
+      var espnLeagueId = els.espnLeagueId.value.trim();
+      var season = els.espnSeason.value.trim();
+      var isPrivate = els.espnPrivateToggle.checked;
+      var espnS2 = isPrivate ? els.espnS2.value.trim() : null;
+      var espnSwid = isPrivate ? els.espnSwid.value.trim() : null;
+      if (!espnLeagueId || !season){ els.espnError.textContent = 'Enter a league ID and season.'; els.espnError.classList.add('show'); reset(); return; }
+      window.FantasyPlatforms.fetchEspnLeague(espnLeagueId, season, espnS2, espnSwid).then(function(league){
+        return insertTeam({
+          owner_id: window.Auth.user.id, platform: 'espn', league_id: espnLeagueId, season: season,
+          label: league.leagueName, espn_s2: espnS2, espn_swid: espnSwid
+        });
+      }).catch(function(err){
+        els.espnError.textContent = err.message || 'Could not find that league.';
+        els.espnError.classList.add('show');
+      }).then(reset);
+    }
+  });
+
+  function applyGate(){
+    var loggedIn = !!(window.Auth && window.Auth.user);
+    els.gate.classList.toggle('show', !loggedIn);
+    els.content.classList.toggle('show', loggedIn);
+    if (loggedIn) loadMyTeams();
+  }
+
+  window.addEventListener('auth:change', applyGate);
+  if (window.Auth){ window.Auth.ready.then(applyGate); }
+})();
+</script>
+</body>
+</html>
