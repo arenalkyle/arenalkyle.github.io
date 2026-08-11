@@ -150,7 +150,8 @@ td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
 
 .rank-cell{ display:flex; align-items:center; gap: 7px; }
 .rank-num{ font-family: 'JetBrains Mono', monospace; color: var(--text-mute); font-size: 12px; }
-.player-name{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 14.5px; color: var(--text); }
+.player-name{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 14.5px; color: var(--text); cursor: pointer; }
+.player-name:hover{ text-decoration: underline; text-decoration-color: var(--brass-dim); }
 .player-name .player-team{ font-weight: 500; color: var(--text-mute); }
 
 .num-cell{ font-family: 'JetBrains Mono', monospace; text-align: right; color: var(--text-dim); }
@@ -274,6 +275,7 @@ td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
 <script src="js/sidebar.js"></script>
 <script src="js/players-data.js"></script>
 <script src="js/player-render.js"></script>
+<script src="js/player-detail.js"></script>
 <script>
 (function(){
   // Fallback used until (or unless) live ranker data loads from Supabase --
@@ -420,7 +422,7 @@ td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
     window.sb.from('rankings').select('owner_id, player_key, rank').then(function(res){
       if (res.error || !res.data || res.data.length === 0) return;
       var ownerIds = Array.from(new Set(res.data.map(function(r){ return r.owner_id; })));
-      return window.sb.from('profiles').select('id, username, role').in('id', ownerIds).then(function(profRes){
+      return window.sb.from('profiles').select('id, username, display_name, role').in('id', ownerIds).then(function(profRes){
         var profileById = {};
         (profRes.data || []).forEach(function(pr){ profileById[pr.id] = pr; });
 
@@ -440,7 +442,7 @@ td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
           var map = byOwner[ownerId];
           if (prof.role === 'admin' || prof.role === 'editor'){
             var key = 'live_' + ownerId;
-            newOfficial.push({ key: key, label: prof.username });
+            newOfficial.push({ key: key, label: prof.display_name || prof.username });
             applyRankerMapToPlayers(key, map);
           } else if (ownerId === currentUserId){
             myRankerMap = map;
@@ -582,6 +584,7 @@ td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
     teamEl.className = 'player-team';
     teamEl.textContent = '\u00b7 ' + p.team;
     nameEl.appendChild(teamEl);
+    nameEl.addEventListener('click', function(e){ e.stopPropagation(); window.PlayerDetail.open(p); });
     tdPlayer.appendChild(nameEl);
     tr.appendChild(tdPlayer);
 

@@ -323,7 +323,7 @@
         box.querySelector('.openLoginBtn').addEventListener('click', openModal);
         return;
       }
-      var name = (state.profile && (state.profile.username)) || state.user.email || 'Account';
+      var name = (state.profile && (state.profile.display_name || state.profile.username)) || state.user.email || 'Account';
       var avatarUrl = state.profile && state.profile.avatar_url;
       var role = state.profile && state.profile.role;
       var avatarHtml = avatarUrl

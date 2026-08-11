@@ -1,9 +1,28 @@
 // Reusable multi-select player search widget (search box + dropdown
 // matches + removable chips), backed by window.__PLAYERS__ /
 // window.playerKey from js/players-data.js. Used by Expert Reviews'
-// Trade Analysis and Start/Sit forms wherever the spec calls for
-// "similar to the trade analyzer" player selection.
+// Trade Analysis and Start/Sit forms, and the Trade Analyzer,
+// wherever the spec calls for "similar to the trade analyzer" player
+// selection. Shows each player's photo and a position-colored pill
+// (via js/player-render.js, if loaded) so results/chips are never
+// just bare text.
 (function () {
+  var photoObserver = (window.PlayerRender && window.PlayerRender.createPhotoObserver) ? window.PlayerRender.createPhotoObserver() : null;
+
+  function buildAvatar(p) {
+    if (window.PlayerRender) return window.PlayerRender.buildAvatarWrap(p, photoObserver);
+    var div = document.createElement('div');
+    div.className = 'pp-avatar';
+    return div;
+  }
+
+  function buildPosPill(pos) {
+    var pill = document.createElement('span');
+    pill.className = 'pp-pos-pill pos-' + pos;
+    pill.textContent = pos === 'DST' ? 'D/ST' : pos;
+    return pill;
+  }
+
   function create(container, options) {
     options = options || {};
     var min = options.min || 0;
@@ -31,7 +50,16 @@
         if (!p) return;
         var chip = document.createElement('span');
         chip.className = 'player-chip';
-        chip.appendChild(document.createTextNode(p.name + ' · ' + p.team));
+        var info = document.createElement('span');
+        info.className = 'player-chip-info';
+        info.appendChild(buildAvatar(p));
+        info.appendChild(document.createTextNode(p.name + ' · ' + p.team));
+        info.appendChild(buildPosPill(p.pos));
+        if (window.PlayerDetail) {
+          info.style.cursor = 'pointer';
+          info.addEventListener('click', function () { window.PlayerDetail.open(p); });
+        }
+        chip.appendChild(info);
         var x = document.createElement('button');
         x.type = 'button';
         x.className = 'player-chip-remove';
@@ -58,7 +86,11 @@
         var key = window.playerKey(p);
         var item = document.createElement('div');
         item.className = 'player-picker-item';
-        item.textContent = p.name + ' · ' + p.pos + ' · ' + p.team;
+        item.appendChild(buildAvatar(p));
+        var label = document.createElement('span');
+        label.textContent = p.name + ' · ' + p.team;
+        item.appendChild(label);
+        item.appendChild(buildPosPill(p.pos));
         item.addEventListener('mousedown', function (e) {
           e.preventDefault();
           if (selected.length >= max) return;

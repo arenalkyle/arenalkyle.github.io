@@ -195,10 +195,18 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
 <script src="js/auth.js"></script>
 <script src="js/sidebar.js"></script>
 <script src="js/players-data.js"></script>
+<script src="js/player-render.js"></script>
 <script src="js/player-picker.js"></script>
+<script src="js/fantasy-platforms.js"></script>
 <script>
 (function(){
-  var POSITIONS = [['QB','QB'],['RB','RB'],['WR','WR'],['TE','TE'],['FLEX','FLEX'],['DST','D/ST'],['K','K']];
+  // Two RB/WR slots each, matching "most leagues" per the spec --
+  // keys stay unique (RB1/RB2 etc) for payload storage; label text
+  // is what's actually shown above each box.
+  var POSITIONS = [
+    ['QB','QB'], ['RB1','RB'], ['RB2','RB'], ['WR1','WR'], ['WR2','WR'],
+    ['FLEX','FLEX'], ['TE','TE'], ['DST','D/ST'], ['K','K']
+  ];
 
   var PANEL_META = {
     team_review: { title: 'Team Review', sub: '$5 &middot; in-depth analysis of your whole team.' },
@@ -230,6 +238,8 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
   // ---------------- Request modal ----------------
   var currentType = null;
   var currentPickers = {}; // key -> PlayerPicker instance
+  var resolvedTeamName = null; // "your team" once picked, for team_review / start_sit
+  var resolvedRoster = null; // that team's roster (team_review auto-fill)
 
   function limitedField(label, id, maxlen, rows){
     return '<div class="modal-field">' +
@@ -249,8 +259,17 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
     });
   }
 
+  function connectedTeamFields(){
+    return '<div class="modal-field"><label>Your Team</label>' +
+      '<select id="rrConnectedTeam"><option value="">Loading your connected teams&hellip;</option></select></div>' +
+      '<div class="modal-field" id="rrMyTeamWrap" style="display:none">' +
+        '<label>Which team in this league is yours?</label>' +
+        '<select id="rrMyTeam"></select>' +
+      '</div>';
+  }
+
   function buildTeamReviewBody(){
-    var html = '<div class="modal-field"><label>Team Name</label><input type="text" id="rrTeamName" placeholder="e.g. your league team name"></div>';
+    var html = connectedTeamFields();
     html += '<div class="position-grid">';
     POSITIONS.forEach(function(p){ html += limitedField(p[1], 'rrPos_' + p[0], 100); });
     html += '</div>';
@@ -267,7 +286,7 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
   }
 
   function buildStartSitBody(){
-    var html = '<div class="modal-field"><label>Team Name (optional)</label><input type="text" id="rrTeamName" placeholder="e.g. your league team name"></div>';
+    var html = connectedTeamFields();
     html += '<div class="modal-field"><label>Players to compare (min. 2)</label><div id="rrPlayers"></div></div>';
     html += limitedField('Anything else?', 'rrNotes', 200, 3);
     return html;
@@ -283,6 +302,72 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
     return html;
   }
 
+  function fillPositionsFromRoster(roster){
+    var bySlot = {};
+    roster.forEach(function(p){
+      if (!p.slot) return;
+      (bySlot[p.slot] = bySlot[p.slot] || []).push(p.name);
+    });
+    var counters = {};
+    POSITIONS.forEach(function(entry){
+      var key = entry[0];
+      var slot = key.replace(/[0-9]$/, '');
+      var idx = counters[slot] || 0;
+      counters[slot] = idx + 1;
+      var name = (bySlot[slot] || [])[idx];
+      var ta = document.getElementById('rrPos_' + key);
+      if (ta && name) ta.value = name + ' — ';
+    });
+  }
+
+  function setupConnectedTeamPicker(type){
+    var connectedSel = document.getElementById('rrConnectedTeam');
+    var myTeamWrap = document.getElementById('rrMyTeamWrap');
+    var myTeamSel = document.getElementById('rrMyTeam');
+    resolvedTeamName = null;
+    resolvedRoster = null;
+
+    window.sb.from('fantasy_teams').select('*').eq('owner_id', window.Auth.user.id).order('created_at').then(function(res){
+      var teams = res.data || [];
+      if (!teams.length){
+        connectedSel.innerHTML = '<option value="">No connected teams — add one in My Teams first</option>';
+        return;
+      }
+      connectedSel.innerHTML = '<option value="">Select a league&hellip;</option>' + teams.map(function(t){
+        return '<option value="' + t.id + '">' + (t.platform === 'sleeper' ? 'Sleeper' : 'ESPN') + ' &middot; ' + (t.label || t.league_id) + '</option>';
+      }).join('');
+
+      connectedSel.addEventListener('change', function(){
+        myTeamWrap.style.display = 'none';
+        myTeamSel.innerHTML = '';
+        resolvedTeamName = null;
+        resolvedRoster = null;
+        var team = teams.find(function(t){ return t.id === connectedSel.value; });
+        if (!team) return;
+
+        var promise = team.platform === 'sleeper'
+          ? window.FantasyPlatforms.fetchSleeperLeague(team.league_id)
+          : window.FantasyPlatforms.fetchEspnLeague(team.league_id, team.season, team.espn_s2, team.espn_swid);
+
+        myTeamSel.innerHTML = '<option value="">Loading teams in this league&hellip;</option>';
+        myTeamWrap.style.display = '';
+        promise.then(function(league){
+          myTeamSel.innerHTML = '<option value="">Select your team&hellip;</option>' + league.teams.map(function(lt, idx){
+            return '<option value="' + idx + '">' + lt.teamName + '</option>';
+          }).join('');
+          myTeamSel.addEventListener('change', function(){
+            var lt = league.teams[myTeamSel.value];
+            resolvedTeamName = lt ? lt.teamName : null;
+            resolvedRoster = lt ? lt.roster : null;
+            if (type === 'team_review' && resolvedRoster) fillPositionsFromRoster(resolvedRoster);
+          });
+        }).catch(function(){
+          myTeamSel.innerHTML = '<option value="">Could not load this league</option>';
+        });
+      });
+    });
+  }
+
   function openReviewModal(type){
     if (!window.Auth || !window.Auth.user){ window.Auth.openLogin(); return; }
     currentType = type;
@@ -293,6 +378,7 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
     els.reviewModalStatus.classList.remove('error');
     els.reviewCheckoutBtn.disabled = false;
     els.reviewCheckoutBtn.textContent = 'Checkout';
+    els.reviewCheckoutBtn.style.display = '';
 
     if (type === 'team_review') els.reviewModalBody.innerHTML = buildTeamReviewBody();
     else if (type === 'trade_analysis') els.reviewModalBody.innerHTML = buildTradeAnalysisBody();
@@ -301,10 +387,13 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
 
     wireCharCounts(els.reviewModalBody);
 
-    if (type === 'trade_analysis'){
+    if (type === 'team_review'){
+      setupConnectedTeamPicker(type);
+    } else if (type === 'trade_analysis'){
       currentPickers.sending = window.PlayerPicker.create(document.getElementById('rrSending'), { min: 1 });
       currentPickers.receiving = window.PlayerPicker.create(document.getElementById('rrReceiving'), { min: 1 });
     } else if (type === 'start_sit'){
+      setupConnectedTeamPicker(type);
       currentPickers.players = window.PlayerPicker.create(document.getElementById('rrPlayers'), { min: 2 });
     } else if (type === 'personal_coach'){
       els.reviewModalBody.querySelectorAll('.tier-option').forEach(function(opt){
@@ -319,7 +408,10 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
     els.reviewModal.classList.add('open');
   }
 
-  function closeReviewModal(){ els.reviewModal.classList.remove('open'); currentType = null; currentPickers = {}; }
+  function closeReviewModal(){
+    els.reviewModal.classList.remove('open');
+    currentType = null; currentPickers = {}; resolvedTeamName = null; resolvedRoster = null;
+  }
   els.reviewModalClose.addEventListener('click', closeReviewModal);
   els.reviewModal.addEventListener('click', function(e){ if (e.target === els.reviewModal) closeReviewModal(); });
 
@@ -343,7 +435,8 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
     var tier = null;
 
     if (currentType === 'team_review'){
-      if (!teamName){ showModalError('Enter your team name.'); return; }
+      if (!resolvedTeamName){ showModalError('Select your team from a connected league.'); return; }
+      teamName = resolvedTeamName;
       POSITIONS.forEach(function(p){ payload[p[0]] = document.getElementById('rrPos_' + p[0]).value.trim(); });
     } else if (currentType === 'trade_analysis'){
       var sending = currentPickers.sending.getSelected();
@@ -351,6 +444,8 @@ table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft)
       if (!sending.length || !receiving.length){ showModalError('Select at least one player on each side.'); return; }
       payload = { sending: sending, receiving: receiving };
     } else if (currentType === 'start_sit'){
+      if (!resolvedTeamName){ showModalError('Select your team from a connected league.'); return; }
+      teamName = resolvedTeamName;
       var players = currentPickers.players.getSelected();
       if (players.length < 2){ showModalError('Select at least 2 players.'); return; }
       payload = { players: players };

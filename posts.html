@@ -290,7 +290,11 @@
   // ---------------- Grid ----------------
   function authorInfo(post){
     var p = profilesById[post.author_id];
-    return p || { username: 'Unknown', avatar_url: null };
+    return p || { username: 'Unknown', display_name: null, avatar_url: null };
+  }
+
+  function displayName(person){
+    return (person && (person.display_name || person.username)) || 'Unknown';
   }
 
   function buildCard(post){
@@ -305,7 +309,7 @@
 
     var avatarHtml = author.avatar_url
       ? '<img src="' + author.avatar_url + '" alt="">'
-      : '<span class="fallback">' + initials(author.username) + '</span>';
+      : '<span class="fallback">' + initials(displayName(author)) + '</span>';
 
     card.innerHTML =
       '<div class="post-card-thumb">' + thumbHtml + '</div>' +
@@ -318,7 +322,7 @@
         '<p class="post-card-excerpt">' + (post.excerpt || '') + '</p>' +
         '<div class="post-card-footer">' +
           '<span class="post-card-avatar">' + avatarHtml + '</span>' +
-          '<span class="post-card-author">' + author.username + '</span>' +
+          '<span class="post-card-author">' + displayName(author) + '</span>' +
           (post.status === 'draft' ? '<span class="post-card-status">Draft</span>' : '') +
         '</div>' +
       '</div>';
@@ -361,7 +365,7 @@
       allPosts = res.data || [];
       var authorIds = Array.from(new Set(allPosts.map(function(p){ return p.author_id; })));
       if (!authorIds.length){ renderGrid(); return; }
-      window.sb.from('profiles').select('id,username,avatar_url').in('id', authorIds).then(function(profRes){
+      window.sb.from('profiles').select('id,username,display_name,avatar_url').in('id', authorIds).then(function(profRes){
         profilesById = {};
         (profRes.data || []).forEach(function(p){ profilesById[p.id] = p; });
         renderGrid();
@@ -386,8 +390,8 @@
     els.detailDate.textContent = post.status === 'published' ? fmtDate(post.published_at) : 'Draft';
     var author = authorInfo(post);
     els.detailAuthor.innerHTML =
-      '<span class="post-card-avatar">' + (author.avatar_url ? '<img src="' + author.avatar_url + '">' : '<span class="fallback">' + initials(author.username) + '</span>') + '</span>' +
-      '<span>' + author.username + '</span>';
+      '<span class="post-card-avatar">' + (author.avatar_url ? '<img src="' + author.avatar_url + '">' : '<span class="fallback">' + initials(displayName(author)) + '</span>') + '</span>' +
+      '<span>' + displayName(author) + '</span>';
 
     if (post.thumbnail_url){ els.detailThumb.src = post.thumbnail_url; els.detailThumb.style.display = ''; }
     else { els.detailThumb.style.display = 'none'; }

@@ -209,20 +209,104 @@ button, input{ font-family: inherit; }
 }
 .player-picker-results.show{ display:block; }
 .player-picker-item{
-  padding: 8px 10px; border-radius: 6px; font-size: 13px; color: var(--text-dim); cursor:pointer;
+  display:flex; align-items:center; gap: 8px; padding: 6px 10px; border-radius: 6px; font-size: 13px;
+  color: var(--text-dim); cursor:pointer;
 }
 .player-picker-item:hover{ background: var(--panel); color: var(--text); }
 .player-picker-chips{ display:flex; flex-wrap:wrap; gap: 6px; margin-top: 8px; }
 .player-chip{
   display:inline-flex; align-items:center; gap: 6px; background: rgba(201,161,90,0.12);
-  border: 1px solid var(--border-soft); border-radius: 999px; padding: 4px 6px 4px 10px;
+  border: 1px solid var(--border-soft); border-radius: 999px; padding: 4px 6px 4px 4px;
   font-size: 12px; color: var(--text-dim);
 }
+.player-chip-info{ display:inline-flex; align-items:center; gap: 6px; }
+
+/* Shared base for window.PlayerRender.buildAvatarWrap()'s output
+   (class="avatar-wrap"). Pages with their own bigger table avatars
+   (index.html, rankings-editor.html, etc.) define a page-scoped
+   .avatar-wrap size that wins by source order -- this is just the
+   fallback for pages (like the player picker's results/chips) that
+   don't define their own. */
+.avatar-wrap{
+  width: 24px; height: 24px; border-radius: 50%; overflow:hidden; background: var(--panel-alt);
+  border: 1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  position: relative;
+}
+.avatar-wrap img{ width:100%; height:100%; object-fit:cover; object-position: top center; display:block; }
+.avatar-wrap.logo img{ object-fit: contain; padding: 3px; background: #17100e; }
+.avatar-wrap img.hidden{ display:none; }
+.avatar-fallback{
+  width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  font-family:'Fraunces', serif; font-weight:700; font-size:9px; color: var(--brass-dim);
+  background: var(--panel-alt);
+}
+.player-chip .avatar-wrap{ width: 20px; height: 20px; }
+
+/* Colored position pill, shared by the player picker's dropdown
+   items/chips. Colors match .pos-pill-cell used on the Rankings /
+   Create-Edit-Rankings tables. */
+.pp-pos-pill{
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.02em;
+  border: 1px solid var(--border-soft); border-radius: 5px; padding: 1px 5px; flex-shrink:0;
+}
+.pp-pos-pill.pos-QB{ color: #e0973f; background: rgba(224,151,63,0.14); border-color: rgba(224,151,63,0.35); }
+.pp-pos-pill.pos-WR{ color: #e8829c; background: rgba(232,130,156,0.14); border-color: rgba(232,130,156,0.35); }
+.pp-pos-pill.pos-RB{ color: #5b9bd5; background: rgba(91,155,213,0.14); border-color: rgba(91,155,213,0.35); }
+.pp-pos-pill.pos-TE{ color: #ffffff; background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3); }
+.pp-pos-pill.pos-K{ color: #e8d24a; background: rgba(232,210,74,0.14); border-color: rgba(232,210,74,0.35); }
+.pp-pos-pill.pos-DST{ color: #e2726a; background: rgba(226,114,106,0.14); border-color: rgba(226,114,106,0.35); }
 .player-chip-remove{
   background:none; border:none; color: var(--text-mute); font-size: 14px; line-height:1; cursor:pointer;
   width: 16px; height: 16px; display:flex; align-items:center; justify-content:center; border-radius: 50%;
 }
 .player-chip-remove:hover{ background: var(--panel-hi); color: var(--danger); }
+
+/* ---------- Player detail modal ---------- */
+.modal-box.player-detail-modal{ max-width: 720px; max-height: 88vh; overflow-y: auto; text-align:left; }
+.pd-header{ display:flex; align-items:center; gap: 16px; margin-bottom: 16px; }
+.pd-photo .avatar-wrap{ width: 84px; height: 84px; }
+.pd-photo .avatar-fallback{ font-size: 24px; }
+.pd-name{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 20px; color: var(--text); margin: 0 0 4px; }
+.pd-meta{ font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.pd-table-wrap{ overflow-x: auto; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 10px; }
+.pd-unavailable{ padding: 20px; text-align:center; color: var(--text-mute); font-size: 12.5px; margin:0; }
+table.pd-table{ width: 100%; border-collapse: collapse; min-width: 720px; }
+table.pd-table th{
+  position: sticky; top:0; background: #201310; text-align:center; padding: 8px 6px; font-size: 10.5px;
+  font-family: 'JetBrains Mono', monospace; color: var(--text-mute); border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+table.pd-table td{ text-align:center; padding: 6px; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid var(--border-soft); }
+table.pd-table .pd-season-label{
+  position: sticky; left:0; background: var(--panel); text-align:left; font-family:'Fraunces', serif;
+  font-weight:700; color: var(--brass-bright); padding-left: 10px;
+}
+table.pd-table .pd-cell-empty{ color: var(--text-mute); opacity: 0.5; }
+table.pd-table .pd-avg, table.pd-table .pd-total{ font-weight:700; color: var(--text); }
+tr.pd-matchup-row td{ border-bottom: 2px solid var(--border); }
+.pd-matchup{ display:inline-block; font-weight:700; font-size: 13px; }
+.pd-matchup-easy{ color: #7a9e4e; }
+.pd-matchup-average{ color: #d4b13f; }
+.pd-matchup-hard{ color: #c0453a; }
+
+.pd-notes-section{ }
+.pd-notes-label{
+  display:block; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-mute); margin-bottom: 6px;
+}
+.pd-notes-view{
+  font-size: 13px; color: var(--text-dim); line-height: 1.6; padding: 10px 12px; background: var(--panel-alt);
+  border: 1px solid var(--border); border-radius: 8px; min-height: 20px; cursor: default; white-space: pre-wrap;
+}
+.pd-notes-edit{
+  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; color: var(--text); font-size: 13px; outline:none; resize: vertical; font-family: inherit;
+}
+.pd-notes-save{
+  margin-top: 8px; background: var(--brass); border: 1px solid var(--brass); color: #241209; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 8px 16px; border-radius: 8px; cursor: pointer;
+}
 
 /* ---------- Notification bell (account menu) ---------- */
 .notif-bell{

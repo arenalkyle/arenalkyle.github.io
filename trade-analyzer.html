@@ -23,6 +23,13 @@
 
 .panel{ background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 
+.format-toggle{ display:flex; flex-wrap:wrap; gap: 8px; margin-bottom: 20px; }
+.format-btn{
+  background: var(--panel-alt); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px;
+  font-family: 'JetBrains Mono', monospace; padding: 7px 14px; border-radius: 999px; cursor:pointer;
+}
+.format-btn.active{ border-color: var(--brass); color: var(--brass-bright); background: rgba(201,161,90,0.1); }
+
 .sides-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
 @media (max-width: 700px){ .sides-grid{ grid-template-columns: 1fr; } }
 .side-col h3{ font-family: 'Fraunces', serif; font-size: 15px; color: var(--brass-bright); margin: 0 0 4px; }
@@ -104,6 +111,12 @@
       </div>
 
       <div class="panel">
+        <div class="format-toggle" id="formatToggle">
+          <button class="format-btn active" data-format="ppr">PPR</button>
+          <button class="format-btn" data-format="half_ppr">Half-PPR</button>
+          <button class="format-btn" data-format="tep">TEP</button>
+          <button class="format-btn" data-format="superflex">Superflex</button>
+        </div>
         <div class="sides-grid">
           <div class="side-col">
             <h3>Side A</h3>
@@ -152,6 +165,8 @@
 <script src="js/auth.js"></script>
 <script src="js/sidebar.js"></script>
 <script src="js/players-data.js"></script>
+<script src="js/player-render.js"></script>
+<script src="js/player-detail.js"></script>
 <script src="js/player-picker.js"></script>
 <script>
 (function(){
@@ -189,6 +204,15 @@
   var pickerA = window.PlayerPicker.create(document.getElementById('pickerA'), { max: MAX_PER_SIDE, onChange: recompute });
   var pickerB = window.PlayerPicker.create(document.getElementById('pickerB'), { max: MAX_PER_SIDE, onChange: recompute });
 
+  document.querySelectorAll('.format-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      activeFormat = btn.getAttribute('data-format');
+      document.querySelectorAll('.format-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      recompute();
+    });
+  });
+
   fetch('https://api.fantasycalc.com/values/current?isDynasty=false&numQbs=1&numTeams=12&ppr=1')
     .then(function(r){ return r.json(); })
     .then(function(data){
@@ -203,12 +227,30 @@
       els.barVerdict.textContent = 'Could not load trade values right now.';
     });
 
+  // Only one of these applies at a time -- picking a format doesn't
+  // re-fetch from FantasyCalc, it just re-weights the base PPR values
+  // by position.
+  var activeFormat = 'ppr';
+  var FORMAT_MULTIPLIERS = {
+    ppr: {},
+    half_ppr: { RB: 1.15, WR: 0.85 },
+    tep: { TE: 1.30 },
+    superflex: { QB: 1.20 }
+  };
+
+  function valueFor(p){
+    var base = valuesByName[normName(p.name)];
+    if (base === undefined) return undefined;
+    var mult = (FORMAT_MULTIPLIERS[activeFormat] || {})[p.pos];
+    return mult ? base * mult : base;
+  }
+
   function sideDetails(keys){
     var total = 0, unvalued = [];
     keys.forEach(function(key){
       var p = playersByKey[key];
       if (!p) return;
-      var v = valuesByName[normName(p.name)];
+      var v = valueFor(p);
       if (v === undefined) { unvalued.push(p.name); return; }
       total += v;
     });
@@ -271,7 +313,7 @@
 
   function tradeRow(key){
     var p = playersByKey[key];
-    return p ? { player_key: key, name: p.name, team: p.team, pos: p.pos, value: valuesByName[normName(p.name)] || 0 } : null;
+    return p ? { player_key: key, name: p.name, team: p.team, pos: p.pos, value: valueFor(p) || 0 } : null;
   }
 
   els.logBtn.addEventListener('click', function(){
@@ -348,10 +390,10 @@
       var rows = res.data || [];
       var userIds = Array.from(new Set(rows.map(function(r){ return r.user_id; }).filter(Boolean)));
       if (!userIds.length){ renderFeed(rows); return; }
-      window.sb.from('profiles').select('id,username').in('id', userIds).then(function(profRes){
-        var usernameById = {};
-        (profRes.data || []).forEach(function(p){ usernameById[p.id] = p.username; });
-        rows.forEach(function(r){ r.username = r.user_id ? usernameById[r.user_id] : null; });
+      window.sb.from('profiles').select('id,username,display_name').in('id', userIds).then(function(profRes){
+        var nameById = {};
+        (profRes.data || []).forEach(function(p){ nameById[p.id] = p.display_name || p.username; });
+        rows.forEach(function(r){ r.username = r.user_id ? nameById[r.user_id] : null; });
         renderFeed(rows);
       });
     });

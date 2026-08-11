@@ -80,6 +80,13 @@
           </div>
 
           <div class="modal-field">
+            <label>Username</label>
+            <input type="text" id="usernameInput" autocomplete="off">
+            <div class="field-error" id="usernameError"></div>
+            <div class="avatar-preview-hint" id="usernameHint" style="margin-top:6px"></div>
+          </div>
+
+          <div class="modal-field">
             <label>Display Name</label>
             <input type="text" id="displayNameInput" autocomplete="off">
             <div class="field-error" id="displayNameError"></div>
@@ -141,6 +148,9 @@
     avatarPreview: document.getElementById('avatarPreview'),
     avatarUrlInput: document.getElementById('avatarUrlInput'),
     avatarUrlError: document.getElementById('avatarUrlError'),
+    usernameInput: document.getElementById('usernameInput'),
+    usernameError: document.getElementById('usernameError'),
+    usernameHint: document.getElementById('usernameHint'),
     displayNameInput: document.getElementById('displayNameInput'),
     displayNameError: document.getElementById('displayNameError'),
     favoriteTeamInput: document.getElementById('favoriteTeamInput'),
@@ -174,9 +184,13 @@
     els.teamLogoPreview.innerHTML = team ? '<img src="' + teamLogoUrl(team) + '" alt="">' : '';
   }
 
+  var usernameLocked = false;
+
   function clearErrors(){
     els.avatarUrlError.textContent = '';
     els.avatarUrlError.classList.remove('show');
+    els.usernameError.textContent = '';
+    els.usernameError.classList.remove('show');
     els.displayNameError.textContent = '';
     els.displayNameError.classList.remove('show');
     els.status.textContent = '';
@@ -185,14 +199,29 @@
 
   function showError(el, msg){ el.textContent = msg; el.classList.add('show'); }
 
+  var DAY_MS = 24 * 60 * 60 * 1000;
+
   function loadProfile(){
     var profile = window.Auth.profile;
     if (!profile) return;
+    els.usernameInput.value = profile.username || '';
     els.displayNameInput.value = profile.display_name || '';
     els.avatarUrlInput.value = profile.avatar_url || '';
     els.favoriteTeamInput.value = profile.favorite_team || '';
     renderAvatarPreview(profile.avatar_url, profile.display_name || profile.username);
     renderTeamLogoPreview(profile.favorite_team);
+
+    usernameLocked = false;
+    els.usernameHint.textContent = '';
+    if (profile.username_changed_at){
+      var next = new Date(profile.username_changed_at).getTime() + 30 * DAY_MS;
+      if (Date.now() < next){
+        usernameLocked = true;
+        var nextDate = new Date(next).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        els.usernameHint.textContent = 'You can change your username again on ' + nextDate + '.';
+      }
+    }
+    els.usernameInput.disabled = usernameLocked;
   }
 
   els.avatarUrlInput.addEventListener('input', function(){
@@ -204,10 +233,15 @@
 
   els.saveBtn.addEventListener('click', function(){
     clearErrors();
+    var username = els.usernameInput.value.trim();
     var displayName = els.displayNameInput.value.trim();
     var avatarUrl = els.avatarUrlInput.value.trim();
     var favoriteTeam = els.favoriteTeamInput.value;
 
+    if (!usernameLocked && !/^[a-zA-Z0-9_]{3,20}$/.test(username)){
+      showError(els.usernameError, '3-20 characters: letters, numbers, underscore only.');
+      return;
+    }
     if (!displayName){ showError(els.displayNameError, 'Display name cannot be empty.'); return; }
     if (avatarUrl && !/^https?:\/\//i.test(avatarUrl)){
       showError(els.avatarUrlError, 'Enter a full URL starting with http:// or https://');
@@ -217,19 +251,28 @@
     els.saveBtn.disabled = true;
     els.status.textContent = 'Saving…';
 
-    window.sb.from('profiles').update({
+    var payload = {
       display_name: displayName,
       avatar_url: avatarUrl || null,
       favorite_team: favoriteTeam || null
-    }).eq('id', window.Auth.user.id).then(function(res){
+    };
+    if (!usernameLocked) payload.username = username;
+
+    window.sb.from('profiles').update(payload).eq('id', window.Auth.user.id).then(function(res){
       els.saveBtn.disabled = false;
       if (res.error){
-        els.status.textContent = 'Could not save: ' + res.error.message;
-        els.status.classList.add('error');
+        if (/duplicate key|already exists|unique constraint/i.test(res.error.message)){
+          showError(els.usernameError, 'That username is already taken.');
+        } else if (/once every 30 days/i.test(res.error.message)){
+          showError(els.usernameError, res.error.message.replace(/^.*?You can/, 'You can'));
+        } else {
+          els.status.textContent = 'Could not save: ' + res.error.message;
+          els.status.classList.add('error');
+        }
         return;
       }
       els.status.textContent = 'Saved.';
-      return window.Auth.refreshProfile();
+      return window.Auth.refreshProfile().then(loadProfile);
     });
   });
 

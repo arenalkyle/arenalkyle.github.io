@@ -19,6 +19,7 @@ create table public.profiles (
   )),
   role          text not null default 'user' check (role in ('user','editor','admin')),
   subscription_tier text not null default 'free' check (subscription_tier in ('free','premium','elite','legendary')),
+  username_changed_at timestamptz,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -60,6 +61,21 @@ begin
   if auth.uid() is not null
      and not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
     new.subscription_tier := old.subscription_tier;
+  end if;
+  -- Username changes: once every 30 days, non-admins only (admins can
+  -- always fix a username via the Admin panel / SQL editor). Raises
+  -- instead of silently reverting so profile.html can show the actual
+  -- reason -- unlike role/subscription_tier, a rejected username edit
+  -- should be visible to the user, not swallowed.
+  if new.username is distinct from old.username then
+    if auth.uid() is not null
+       and not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+       and old.username_changed_at is not null
+       and now() - old.username_changed_at < interval '30 days' then
+      raise exception 'You can only change your username once every 30 days. Next change available %.',
+        to_char(old.username_changed_at + interval '30 days', 'YYYY-MM-DD');
+    end if;
+    new.username_changed_at := now();
   end if;
   return new;
 end;
@@ -822,6 +838,34 @@ create trigger protect_post_status_trigger
   for each row execute procedure public.protect_post_status();
 
 -- ============================================================
+-- player_notes: the free-text note shown in the player detail
+-- modal (Rankings, Create/Edit Rankings, Trade Analyzer). One row
+-- per player_key (same key computed by window.playerKey), editable
+-- by anyone with edit_player_notes (editor/admin by default),
+-- readable by everyone.
+-- ============================================================
+create table public.player_notes (
+  player_key text primary key,
+  notes      text not null default '',
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.player_notes enable row level security;
+
+create policy player_notes_select_all on public.player_notes for select using (true);
+
+create policy player_notes_upsert on public.player_notes
+  for insert with check (public.has_permission(auth.uid(), 'edit_player_notes'));
+
+create policy player_notes_update on public.player_notes
+  for update using (public.has_permission(auth.uid(), 'edit_player_notes'))
+  with check (public.has_permission(auth.uid(), 'edit_player_notes'));
+
+grant select on public.player_notes to anon, authenticated;
+grant insert, update on public.player_notes to authenticated;
+
+-- ============================================================
 -- Seed permissions + default role policies
 -- ============================================================
 insert into public.permissions (key, description) values
@@ -835,7 +879,8 @@ insert into public.permissions (key, description) values
   ('log_analyzed_trades', 'Save an analyzed trade to the public Recent Trades feed on the Trade Analyzer'),
   ('create_posts', 'Create and edit draft posts on the Posts page'),
   ('publish_posts', 'Publish or unpublish any post'),
-  ('delete_posts', 'Delete any post');
+  ('delete_posts', 'Delete any post'),
+  ('edit_player_notes', 'Edit the notes shown in a player''s detail card');
 
 insert into public.role_permissions (role, permission_key, allowed) values
   ('user',   'create_edit_own_rankings',   true),
@@ -843,6 +888,7 @@ insert into public.role_permissions (role, permission_key, allowed) values
   ('editor', 'publish_official_rankings',  true),
   ('editor', 'log_analyzed_trades',        true),
   ('editor', 'create_posts',               true),
+  ('editor', 'edit_player_notes',          true),
   ('admin',  'create_edit_own_rankings',   true),
   ('admin',  'publish_official_rankings',  true),
   ('admin',  'view_admin_panel',           true),
@@ -853,4 +899,5 @@ insert into public.role_permissions (role, permission_key, allowed) values
   ('admin',  'log_analyzed_trades',        true),
   ('admin',  'create_posts',               true),
   ('admin',  'publish_posts',              true),
-  ('admin',  'delete_posts',               true);
+  ('admin',  'delete_posts',               true),
+  ('admin',  'edit_player_notes',          true);

@@ -22,6 +22,10 @@
     28: 'WAS', 29: 'CAR', 30: 'JAX', 33: 'BAL', 34: 'HOU'
   };
   var ESPN_POSITION = { 1: 'QB', 2: 'RB', 3: 'WR', 4: 'TE', 5: 'K', 16: 'DST' };
+  // lineupSlotId -> starting slot (community-reverse-engineered, same
+  // caveat as the maps above). 20/21 are bench/IR -- not a starter.
+  var ESPN_LINEUP_SLOT = { 0: 'QB', 2: 'RB', 4: 'WR', 6: 'TE', 23: 'FLEX', 16: 'DST', 17: 'K' };
+  var SLEEPER_SLOT_LABELS = { QB: 'QB', RB: 'RB', WR: 'WR', TE: 'TE', FLEX: 'FLEX', DEF: 'DST', K: 'K' };
 
   // ---------------- Sleeper ----------------
   function getSleeperPlayers() {
@@ -56,11 +60,25 @@
       var league = results[0], rosters = results[1] || [], users = results[2] || [], playerDict = results[3] || {};
       var usersById = {};
       users.forEach(function (u) { usersById[u.user_id] = u; });
+      // roster_positions lists the starting lineup slots in order (bench
+      // slots are 'BN', taxi/IR similar) -- roster.starters is a same-length,
+      // same-order array of player ids for the non-bench slots only.
+      var startingSlots = (league.roster_positions || []).filter(function (s) { return s !== 'BN' && s !== 'IR' && s !== 'TAXI'; });
+
       var teams = rosters.map(function (r) {
         var u = usersById[r.owner_id];
         var teamName = (u && u.metadata && u.metadata.team_name) || (u && u.display_name) || ('Team ' + r.roster_id);
         var settings = r.settings || {};
-        var roster = (r.players || []).map(function (pid) { return sleeperPlayerInfo(playerDict, pid); });
+        var slotByPlayerId = {};
+        (r.starters || []).forEach(function (pid, idx) {
+          var slot = startingSlots[idx];
+          if (slot && slot !== '0') slotByPlayerId[pid] = SLEEPER_SLOT_LABELS[slot] || slot;
+        });
+        var roster = (r.players || []).map(function (pid) {
+          var info = sleeperPlayerInfo(playerDict, pid);
+          info.slot = slotByPlayerId[pid] || null;
+          return info;
+        });
         return {
           teamId: String(r.roster_id), teamName: teamName,
           wins: settings.wins || 0, losses: settings.losses || 0, ties: settings.ties || 0,
@@ -98,7 +116,8 @@
           return {
             name: pp.fullName,
             team: ESPN_PRO_TEAM_ABBR[pp.proTeamId] || 'FA',
-            pos: ESPN_POSITION[pp.defaultPositionId] || ''
+            pos: ESPN_POSITION[pp.defaultPositionId] || '',
+            slot: ESPN_LINEUP_SLOT[entry.lineupSlotId] || null
           };
         }).filter(Boolean);
         return {
