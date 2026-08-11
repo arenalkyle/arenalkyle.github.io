@@ -1,0 +1,89 @@
+// Reusable multi-select player search widget (search box + dropdown
+// matches + removable chips), backed by window.__PLAYERS__ /
+// window.playerKey from js/players-data.js. Used by Expert Reviews'
+// Trade Analysis and Start/Sit forms wherever the spec calls for
+// "similar to the trade analyzer" player selection.
+(function () {
+  function create(container, options) {
+    options = options || {};
+    var min = options.min || 0;
+    var max = options.max || Infinity;
+    var selected = (options.initial || []).slice();
+    var onChange = options.onChange || function () {};
+    var playersByKey = {};
+    window.__PLAYERS__.forEach(function (p) { playersByKey[window.playerKey(p)] = p; });
+
+    container.innerHTML =
+      '<div class="player-picker">' +
+        '<input class="player-picker-input" type="text" placeholder="Search a player&hellip;" autocomplete="off">' +
+        '<div class="player-picker-results"></div>' +
+        '<div class="player-picker-chips"></div>' +
+      '</div>';
+
+    var input = container.querySelector('.player-picker-input');
+    var results = container.querySelector('.player-picker-results');
+    var chips = container.querySelector('.player-picker-chips');
+
+    function renderChips() {
+      chips.innerHTML = '';
+      selected.forEach(function (key) {
+        var p = playersByKey[key];
+        if (!p) return;
+        var chip = document.createElement('span');
+        chip.className = 'player-chip';
+        chip.appendChild(document.createTextNode(p.name + ' · ' + p.team));
+        var x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'player-chip-remove';
+        x.textContent = '×';
+        x.addEventListener('click', function () {
+          selected = selected.filter(function (k) { return k !== key; });
+          renderChips();
+          onChange(selected.slice());
+        });
+        chip.appendChild(x);
+        chips.appendChild(chip);
+      });
+    }
+
+    function renderResults(query) {
+      results.innerHTML = '';
+      if (!query || selected.length >= max) { results.classList.remove('show'); return; }
+      var q = query.toLowerCase();
+      var matches = window.__PLAYERS__.filter(function (p) {
+        return selected.indexOf(window.playerKey(p)) === -1 && p.name.toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 8);
+      if (!matches.length) { results.classList.remove('show'); return; }
+      matches.forEach(function (p) {
+        var key = window.playerKey(p);
+        var item = document.createElement('div');
+        item.className = 'player-picker-item';
+        item.textContent = p.name + ' · ' + p.pos + ' · ' + p.team;
+        item.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          if (selected.length >= max) return;
+          selected.push(key);
+          input.value = '';
+          results.innerHTML = '';
+          results.classList.remove('show');
+          renderChips();
+          onChange(selected.slice());
+        });
+        results.appendChild(item);
+      });
+      results.classList.add('show');
+    }
+
+    input.addEventListener('input', function () { renderResults(input.value.trim()); });
+    input.addEventListener('blur', function () { results.classList.remove('show'); });
+
+    renderChips();
+
+    return {
+      getSelected: function () { return selected.slice(); },
+      isValid: function () { return selected.length >= min && selected.length <= max; }
+    };
+  }
+
+  window.PlayerPicker = { create: create };
+})();

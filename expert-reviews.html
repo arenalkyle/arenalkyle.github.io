@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Expert Reviews &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 24px; max-width: 1100px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.page-head{ margin-bottom: 18px; }
+.page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
+.page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
+
+/* ---------- Purchase panels (scroll / slide, works on mobile too) ---------- */
+.panel-scroll{
+  display:flex; gap: 16px; overflow-x: auto; padding: 4px 4px 14px; scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch; cursor: grab;
+}
+.panel-scroll.dragging{ cursor: grabbing; user-select: none; }
+.panel-scroll::-webkit-scrollbar{ height: 8px; }
+.panel-scroll::-webkit-scrollbar-thumb{ background: var(--border); border-radius: 4px; }
+
+.review-panel{
+  flex: 0 0 250px; scroll-snap-align: start; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 20px; display:flex; flex-direction:column; align-items:center; text-align:center;
+}
+.review-panel-icon{
+  width: 62px; height: 62px; border-radius: 50%; background: rgba(201,161,90,0.14); border: 1px solid var(--border-soft);
+  display:flex; align-items:center; justify-content:center; margin-bottom: 14px; flex-shrink:0;
+}
+.review-panel-icon svg{ width: 30px; height: 30px; stroke: var(--brass-bright); fill:none; stroke-width: 1.8; }
+.review-panel h3{ font-family: 'Fraunces', serif; font-size: 16px; margin: 0 0 2px; color: var(--text); }
+.review-panel .price{ font-family:'JetBrains Mono', monospace; font-size: 13px; color: var(--brass); margin-bottom: 10px; }
+.review-panel p{ font-size: 12.5px; color: var(--text-mute); line-height: 1.5; margin: 0 0 16px; flex: 1 1 auto; }
+.review-panel button{
+  background: var(--brass); border: 1px solid var(--brass); color: #241209; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 9px 18px; border-radius: 8px; cursor: pointer;
+  width: 100%;
+}
+.review-panel button:hover{ filter: brightness(1.08); }
+
+/* ---------- Review request modal ---------- */
+.modal-box.review-modal{ max-width: 560px; max-height: 86vh; overflow-y: auto; text-align:left; }
+.modal-box.review-modal .modal-title{ text-align:left; margin-bottom: 6px; }
+.review-modal-sub{ font-size: 12px; color: var(--text-mute); margin-bottom: 18px; }
+.char-count{ font-size: 11px; color: var(--text-mute); text-align:right; margin-top: 4px; }
+.modal-field textarea{
+  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; color: var(--text); font-size: 13.5px; outline:none; resize: vertical; font-family: inherit;
+}
+.modal-field textarea:focus{ border-color: var(--brass); }
+.position-grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 4px; }
+@media (max-width: 480px){ .position-grid{ grid-template-columns: 1fr; } }
+
+.tier-options{ display:flex; flex-direction:column; gap: 10px; margin-bottom: 12px; }
+.tier-option{
+  display:flex; gap: 10px; align-items:flex-start; padding: 12px; border: 1px solid var(--border); border-radius: 9px;
+  cursor:pointer; background: var(--panel-alt);
+}
+.tier-option.selected{ border-color: var(--brass); background: rgba(201,161,90,0.1); }
+.tier-option input{ margin-top: 3px; accent-color: var(--brass); }
+.tier-option-text strong{ color: var(--text); font-size: 13.5px; }
+.tier-option-text p{ margin: 4px 0 0; font-size: 12px; color: var(--text-mute); line-height: 1.5; }
+
+.modal-actions{ display:flex; align-items:center; justify-content:space-between; gap: 12px; margin-top: 18px; }
+.modal-status{ font-size: 12px; color: var(--text-mute); }
+.modal-status.error{ color: var(--danger); }
+.checkout-btn{
+  background: var(--brass); border: 1px solid var(--brass); color: #241209; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace; font-size: 12.5px; letter-spacing: 0.03em;
+  padding: 10px 22px; border-radius: 8px; cursor: pointer; flex-shrink:0; transition: filter .12s ease;
+}
+.checkout-btn:hover{ filter: brightness(1.08); }
+.checkout-btn:disabled{ opacity: 0.5; cursor: not-allowed; filter:none; }
+
+/* ---------- Expert / admin incoming queue ---------- */
+.queue-section{ margin-top: 32px; }
+.queue-section h2{ font-family: 'Fraunces', serif; font-size: 17px; color: var(--brass-bright); margin: 0 0 4px; }
+.queue-section .sub{ font-size: 12px; color: var(--text-mute); margin: 0 0 14px; }
+.panel{ background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+table.queue-table{ width: 100%; border-collapse: collapse; }
+table.queue-table th{
+  text-align: left; padding: 8px 10px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-mute); border-bottom: 1px solid var(--border);
+}
+table.queue-table td{ padding: 10px; border-bottom: 1px solid var(--border-soft); font-size: 13px; color: var(--text-dim); vertical-align: top; }
+.queue-empty{ padding: 20px; text-align:center; color: var(--text-mute); font-size: 12.5px; }
+.respond-btn{
+  background: var(--panel-alt); border: 1px solid var(--border); color: var(--text); font-size: 12px;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer;
+}
+.respond-btn:hover{ border-color: var(--brass-dim); }
+.log-link{ font-size: 12px; color: var(--brass); text-decoration:none; }
+.log-link:hover{ color: var(--brass-bright); }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+      <div class="page-head">
+        <h1>Expert Reviews</h1>
+        <p>Get a second opinion from The Board&rsquo;s experts.</p>
+      </div>
+
+      <div class="panel-scroll" id="panelScroll">
+        <div class="review-panel">
+          <div class="review-panel-icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z"></path><path d="M6 5h12a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"></path><path d="m9 13 2 2 4-4"></path></svg></div>
+          <h3>Team Review</h3>
+          <div class="price">$5</div>
+          <p>Have your team reviewed by an expert and receive an in-depth analysis.</p>
+          <button data-type="team_review">Request Review</button>
+        </div>
+
+        <div class="review-panel">
+          <div class="review-panel-icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3 21 7l-4 4"></path><path d="M21 7H9a4 4 0 0 0-4 4"></path><path d="M7 21 3 17l4-4"></path><path d="M3 17h12a4 4 0 0 0 4-4"></path></svg></div>
+          <h3>Trade Analysis</h3>
+          <div class="price">$1.00</div>
+          <p>Get your trade analyzed to ensure you get the best side of the deal.</p>
+          <button data-type="trade_analysis">Request Review</button>
+        </div>
+
+        <div class="review-panel">
+          <div class="review-panel-icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="2"></rect><rect x="3" y="14" width="18" height="6" rx="2"></rect><circle cx="8" cy="7" r="1.4" fill="var(--brass-bright)" stroke="none"></circle><circle cx="16" cy="17" r="1.4" fill="var(--brass-bright)" stroke="none"></circle></svg></div>
+          <h3>Start/Sit</h3>
+          <div class="price">$1.00</div>
+          <p>Tough decision this week? Our experts will give you the best breakdown for you.</p>
+          <button data-type="start_sit">Request Review</button>
+        </div>
+
+        <div class="review-panel">
+          <div class="review-panel-icon"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"></path></svg></div>
+          <h3>Personal Coach</h3>
+          <div class="price">$10-25</div>
+          <p>Personalized help from our team to ensure you&rsquo;re making the best decisions.</p>
+          <button data-type="personal_coach">Request Review</button>
+        </div>
+      </div>
+
+      <div class="queue-section" id="queueSection" style="display:none">
+        <h2>Incoming Requests</h2>
+        <p class="sub">Awaiting a response, newest first. <a class="log-link" href="expert-reviews-log.html">View full log &rarr;</a></p>
+        <div class="panel">
+          <div style="overflow-x:auto">
+            <table class="queue-table" id="queueTable">
+              <thead><tr><th>User</th><th>Type</th><th>Team</th><th>Submitted</th><th></th></tr></thead>
+              <tbody id="queueBody"></tbody>
+            </table>
+          </div>
+          <div class="queue-empty" id="queueEmpty" style="display:none">Nothing waiting on a response.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="reviewModal">
+  <div class="modal-box review-modal" id="reviewModalBox">
+    <button class="modal-close" id="reviewModalClose" aria-label="Close">&times;</button>
+    <h2 class="modal-title" id="reviewModalTitle"></h2>
+    <div class="review-modal-sub" id="reviewModalSub"></div>
+    <div id="reviewModalBody"></div>
+    <div class="modal-actions">
+      <span class="modal-status" id="reviewModalStatus"></span>
+      <button class="checkout-btn" id="reviewCheckoutBtn">Checkout</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="respondModal">
+  <div class="modal-box review-modal" id="respondModalBox">
+    <button class="modal-close" id="respondModalClose" aria-label="Close">&times;</button>
+    <h2 class="modal-title">Respond</h2>
+    <div class="review-modal-sub" id="respondModalSub"></div>
+    <div class="modal-field">
+      <label>Your response</label>
+      <textarea id="respondText" rows="8"></textarea>
+    </div>
+    <div class="modal-actions">
+      <span class="modal-status" id="respondStatus"></span>
+      <button class="checkout-btn" id="respondSendBtn">Send</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/players-data.js"></script>
+<script src="js/player-picker.js"></script>
+<script>
+(function(){
+  var POSITIONS = [['QB','QB'],['RB','RB'],['WR','WR'],['TE','TE'],['FLEX','FLEX'],['DST','D/ST'],['K','K']];
+
+  var PANEL_META = {
+    team_review: { title: 'Team Review', sub: '$5 &middot; in-depth analysis of your whole team.' },
+    trade_analysis: { title: 'Trade Analysis', sub: '$1.00 &middot; make sure you’re not getting fleeced.' },
+    start_sit: { title: 'Start/Sit', sub: '$1.00 &middot; pick a minimum of 2 players to compare.' },
+    personal_coach: { title: 'Personal Coach', sub: 'Ongoing, personalized help all season.' }
+  };
+
+  var els = {
+    panelScroll: document.getElementById('panelScroll'),
+    queueSection: document.getElementById('queueSection'),
+    queueBody: document.getElementById('queueBody'),
+    queueEmpty: document.getElementById('queueEmpty'),
+    reviewModal: document.getElementById('reviewModal'),
+    reviewModalTitle: document.getElementById('reviewModalTitle'),
+    reviewModalSub: document.getElementById('reviewModalSub'),
+    reviewModalBody: document.getElementById('reviewModalBody'),
+    reviewModalStatus: document.getElementById('reviewModalStatus'),
+    reviewCheckoutBtn: document.getElementById('reviewCheckoutBtn'),
+    reviewModalClose: document.getElementById('reviewModalClose'),
+    respondModal: document.getElementById('respondModal'),
+    respondModalSub: document.getElementById('respondModalSub'),
+    respondText: document.getElementById('respondText'),
+    respondStatus: document.getElementById('respondStatus'),
+    respondSendBtn: document.getElementById('respondSendBtn'),
+    respondModalClose: document.getElementById('respondModalClose')
+  };
+
+  // ---------------- Drag-to-scroll for the panel row (desktop mouse) ----------------
+  (function(){
+    var down = false, startX = 0, startScroll = 0, moved = false;
+    els.panelScroll.addEventListener('mousedown', function(e){
+      down = true; moved = false; startX = e.pageX; startScroll = els.panelScroll.scrollLeft;
+      els.panelScroll.classList.add('dragging');
+    });
+    window.addEventListener('mouseup', function(){ down = false; els.panelScroll.classList.remove('dragging'); });
+    window.addEventListener('mousemove', function(e){
+      if (!down) return;
+      moved = true;
+      els.panelScroll.scrollLeft = startScroll - (e.pageX - startX);
+    });
+    els.panelScroll.addEventListener('click', function(e){ if (moved) e.preventDefault(); }, true);
+  })();
+
+  // ---------------- Request modal ----------------
+  var currentType = null;
+  var currentPickers = {}; // key -> PlayerPicker instance
+
+  function limitedField(label, id, maxlen, rows){
+    return '<div class="modal-field">' +
+      '<label>' + label + '</label>' +
+      '<textarea id="' + id + '" maxlength="' + maxlen + '" rows="' + (rows || 2) + '"></textarea>' +
+      '<div class="char-count" id="' + id + 'Count">0/' + maxlen + '</div>' +
+    '</div>';
+  }
+
+  function wireCharCounts(root){
+    root.querySelectorAll('textarea[maxlength]').forEach(function(ta){
+      var counter = document.getElementById(ta.id + 'Count');
+      if (!counter) return;
+      ta.addEventListener('input', function(){
+        counter.textContent = ta.value.length + '/' + ta.getAttribute('maxlength');
+      });
+    });
+  }
+
+  function buildTeamReviewBody(){
+    var html = '<div class="modal-field"><label>Team Name</label><input type="text" id="rrTeamName" placeholder="e.g. your league team name"></div>';
+    html += '<div class="position-grid">';
+    POSITIONS.forEach(function(p){ html += limitedField(p[1], 'rrPos_' + p[0], 100); });
+    html += '</div>';
+    html += limitedField('Anything else?', 'rrNotes', 200, 3);
+    return html;
+  }
+
+  function buildTradeAnalysisBody(){
+    var html = '<div class="modal-field"><label>Team Name (optional)</label><input type="text" id="rrTeamName" placeholder="e.g. your league team name"></div>';
+    html += '<div class="modal-field"><label>Sending</label><div id="rrSending"></div></div>';
+    html += '<div class="modal-field"><label>Receiving</label><div id="rrReceiving"></div></div>';
+    html += limitedField('Anything else?', 'rrNotes', 200, 3);
+    return html;
+  }
+
+  function buildStartSitBody(){
+    var html = '<div class="modal-field"><label>Team Name (optional)</label><input type="text" id="rrTeamName" placeholder="e.g. your league team name"></div>';
+    html += '<div class="modal-field"><label>Players to compare (min. 2)</label><div id="rrPlayers"></div></div>';
+    html += limitedField('Anything else?', 'rrNotes', 200, 3);
+    return html;
+  }
+
+  function buildPersonalCoachBody(){
+    var html = '<div class="modal-field"><label>Team Name</label><input type="text" id="rrTeamName" placeholder="e.g. your league team name"></div>';
+    html += '<div class="tier-options">' +
+      '<label class="tier-option" data-tier="10"><input type="radio" name="rrTier" value="10"><span class="tier-option-text"><strong>For $10</strong><p>We will review the entire team, along with bringing up potential trade targets, help with current week start/sit, and waiver wire targets.</p></span></label>' +
+      '<label class="tier-option" data-tier="25"><input type="radio" name="rrTier" value="25"><span class="tier-option-text"><strong>For $25</strong><p>Additionally, we will review all of your matchups for the rest of the season, providing you a sit/start for the season matchups. Will also provide answers to up to 5 bonus questions.</p></span></label>' +
+    '</div>';
+    html += limitedField('Anything else?', 'rrNotes', 500, 4);
+    return html;
+  }
+
+  function openReviewModal(type){
+    if (!window.Auth || !window.Auth.user){ window.Auth.openLogin(); return; }
+    currentType = type;
+    currentPickers = {};
+    els.reviewModalTitle.textContent = PANEL_META[type].title;
+    els.reviewModalSub.innerHTML = PANEL_META[type].sub;
+    els.reviewModalStatus.textContent = '';
+    els.reviewModalStatus.classList.remove('error');
+    els.reviewCheckoutBtn.disabled = false;
+    els.reviewCheckoutBtn.textContent = 'Checkout';
+
+    if (type === 'team_review') els.reviewModalBody.innerHTML = buildTeamReviewBody();
+    else if (type === 'trade_analysis') els.reviewModalBody.innerHTML = buildTradeAnalysisBody();
+    else if (type === 'start_sit') els.reviewModalBody.innerHTML = buildStartSitBody();
+    else if (type === 'personal_coach') els.reviewModalBody.innerHTML = buildPersonalCoachBody();
+
+    wireCharCounts(els.reviewModalBody);
+
+    if (type === 'trade_analysis'){
+      currentPickers.sending = window.PlayerPicker.create(document.getElementById('rrSending'), { min: 1 });
+      currentPickers.receiving = window.PlayerPicker.create(document.getElementById('rrReceiving'), { min: 1 });
+    } else if (type === 'start_sit'){
+      currentPickers.players = window.PlayerPicker.create(document.getElementById('rrPlayers'), { min: 2 });
+    } else if (type === 'personal_coach'){
+      els.reviewModalBody.querySelectorAll('.tier-option').forEach(function(opt){
+        opt.addEventListener('click', function(){
+          els.reviewModalBody.querySelectorAll('.tier-option').forEach(function(o){ o.classList.remove('selected'); });
+          opt.classList.add('selected');
+          opt.querySelector('input').checked = true;
+        });
+      });
+    }
+
+    els.reviewModal.classList.add('open');
+  }
+
+  function closeReviewModal(){ els.reviewModal.classList.remove('open'); currentType = null; currentPickers = {}; }
+  els.reviewModalClose.addEventListener('click', closeReviewModal);
+  els.reviewModal.addEventListener('click', function(e){ if (e.target === els.reviewModal) closeReviewModal(); });
+
+  els.panelScroll.querySelectorAll('button[data-type]').forEach(function(btn){
+    btn.addEventListener('click', function(){ openReviewModal(btn.getAttribute('data-type')); });
+  });
+
+  function showModalError(msg){
+    els.reviewModalStatus.textContent = msg;
+    els.reviewModalStatus.classList.add('error');
+  }
+
+  els.reviewCheckoutBtn.addEventListener('click', function(){
+    els.reviewModalStatus.textContent = '';
+    els.reviewModalStatus.classList.remove('error');
+
+    var teamNameEl = document.getElementById('rrTeamName');
+    var teamName = teamNameEl ? teamNameEl.value.trim() : '';
+    var notes = document.getElementById('rrNotes').value.trim();
+    var payload = {};
+    var tier = null;
+
+    if (currentType === 'team_review'){
+      if (!teamName){ showModalError('Enter your team name.'); return; }
+      POSITIONS.forEach(function(p){ payload[p[0]] = document.getElementById('rrPos_' + p[0]).value.trim(); });
+    } else if (currentType === 'trade_analysis'){
+      var sending = currentPickers.sending.getSelected();
+      var receiving = currentPickers.receiving.getSelected();
+      if (!sending.length || !receiving.length){ showModalError('Select at least one player on each side.'); return; }
+      payload = { sending: sending, receiving: receiving };
+    } else if (currentType === 'start_sit'){
+      var players = currentPickers.players.getSelected();
+      if (players.length < 2){ showModalError('Select at least 2 players.'); return; }
+      payload = { players: players };
+    } else if (currentType === 'personal_coach'){
+      if (!teamName){ showModalError('Enter your team name.'); return; }
+      var tierInput = els.reviewModalBody.querySelector('input[name="rrTier"]:checked');
+      if (!tierInput){ showModalError('Choose the $10 or $25 option.'); return; }
+      tier = tierInput.value;
+    }
+
+    els.reviewCheckoutBtn.disabled = true;
+    els.reviewCheckoutBtn.textContent = 'Submitting…';
+
+    window.sb.rpc('submit_expert_review', {
+      p_review_type: currentType,
+      p_tier: tier,
+      p_team_name: teamName || null,
+      p_payload: payload,
+      p_notes: notes || null
+    }).then(function(res){
+      if (res.error){
+        els.reviewCheckoutBtn.disabled = false;
+        els.reviewCheckoutBtn.textContent = 'Checkout';
+        showModalError('Could not submit: ' + res.error.message);
+        return;
+      }
+      // STUB: no Stripe integration yet -- a real checkout would redirect
+      // to Stripe here instead of showing this message. See the comment
+      // on submit_expert_review() in supabase/schema.sql.
+      els.reviewModalBody.innerHTML = '<p style="color:var(--text-dim);font-size:13.5px;line-height:1.6">' +
+        'Request submitted! Payment isn’t wired up yet, so nothing was charged — an expert will follow up. ' +
+        'You’ll get a notification here once it’s ready.</p>';
+      els.reviewCheckoutBtn.style.display = 'none';
+      loadQueue();
+    });
+  });
+
+  // ---------------- Expert / admin incoming queue ----------------
+  var TYPE_LABELS = { team_review: 'Team Review', trade_analysis: 'Trade Analysis', start_sit: 'Start/Sit', personal_coach: 'Personal Coach' };
+
+  function fmtDate(iso){
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  var respondTarget = null;
+
+  function openRespondModal(row){
+    respondTarget = row;
+    els.respondModalSub.textContent = TYPE_LABELS[row.review_type] + ' for ' + row.username + (row.team_name ? ' (' + row.team_name + ')' : '');
+    els.respondText.value = row.response || '';
+    els.respondStatus.textContent = '';
+    els.respondModal.classList.add('open');
+  }
+  els.respondModalClose.addEventListener('click', function(){ els.respondModal.classList.remove('open'); });
+  els.respondModal.addEventListener('click', function(e){ if (e.target === els.respondModal) els.respondModal.classList.remove('open'); });
+
+  els.respondSendBtn.addEventListener('click', function(){
+    if (!respondTarget) return;
+    var text = els.respondText.value.trim();
+    if (!text){ els.respondStatus.textContent = 'Write a response first.'; els.respondStatus.classList.add('error'); return; }
+    els.respondSendBtn.disabled = true;
+    window.sb.rpc('admin_respond_expert_review', { p_request_id: respondTarget.id, p_response: text }).then(function(res){
+      els.respondSendBtn.disabled = false;
+      if (res.error){
+        els.respondStatus.textContent = 'Could not send: ' + res.error.message;
+        els.respondStatus.classList.add('error');
+        return;
+      }
+      els.respondModal.classList.remove('open');
+      loadQueue();
+    });
+  });
+
+  function renderQueue(rows){
+    var pending = rows.filter(function(r){ return r.status !== 'completed'; });
+    els.queueBody.innerHTML = '';
+    els.queueEmpty.style.display = pending.length ? 'none' : '';
+    pending.forEach(function(r){
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + r.username + '</td>' +
+        '<td>' + TYPE_LABELS[r.review_type] + '</td>' +
+        '<td>' + (r.team_name || '—') + '</td>' +
+        '<td>' + fmtDate(r.created_at) + '</td>';
+      var tdBtn = document.createElement('td');
+      var btn = document.createElement('button');
+      btn.className = 'respond-btn';
+      btn.textContent = 'Respond';
+      btn.addEventListener('click', function(){ openRespondModal(r); });
+      tdBtn.appendChild(btn);
+      tr.appendChild(tdBtn);
+      els.queueBody.appendChild(tr);
+    });
+  }
+
+  function loadQueue(){
+    if (!window.Auth || !window.Auth.can('manage_expert_reviews')){
+      els.queueSection.style.display = 'none';
+      return;
+    }
+    els.queueSection.style.display = '';
+    window.sb.rpc('admin_list_expert_reviews', { search: null }).then(function(res){
+      renderQueue(res.data || []);
+    });
+  }
+
+  window.addEventListener('auth:change', loadQueue);
+  if (window.Auth){ window.Auth.ready.then(loadQueue); }
+})();
+</script>
+</body>
+</html>

@@ -115,7 +115,8 @@ button, input{ font-family: inherit; }
 
 /* ---------- Modal ---------- */
 .modal-backdrop{
-  position: fixed; inset: 0; background: rgba(10,4,3,0.72); display:none;
+  position: fixed; inset: 0; background: rgba(10,4,3,0.72); backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px); display:none;
   align-items:center; justify-content:center; z-index: 100; padding: 20px;
 }
 .modal-backdrop.open{ display:flex; }
@@ -193,5 +194,64 @@ button, input{ font-family: inherit; }
   display:flex; align-items:center; justify-content:center; margin: 14px 0; padding: 10px; background: var(--panel-alt);
   border: 1px solid var(--border); border-radius: 8px; min-height: 68px;
 }
+
+/* ---------- Player picker (search + chips) ---------- */
+.player-picker{ position: relative; }
+.player-picker-input{
+  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; color: var(--text); font-size: 14px; outline:none; transition: border-color .12s ease;
+}
+.player-picker-input:focus{ border-color: var(--brass); }
+.player-picker-results{
+  display:none; position:absolute; top: calc(100% + 4px); left:0; right:0; z-index: 30;
+  background: var(--panel-hi); border: 1px solid var(--border); border-radius: 8px; padding: 4px;
+  max-height: 220px; overflow-y:auto; box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+}
+.player-picker-results.show{ display:block; }
+.player-picker-item{
+  padding: 8px 10px; border-radius: 6px; font-size: 13px; color: var(--text-dim); cursor:pointer;
+}
+.player-picker-item:hover{ background: var(--panel); color: var(--text); }
+.player-picker-chips{ display:flex; flex-wrap:wrap; gap: 6px; margin-top: 8px; }
+.player-chip{
+  display:inline-flex; align-items:center; gap: 6px; background: rgba(201,161,90,0.12);
+  border: 1px solid var(--border-soft); border-radius: 999px; padding: 4px 6px 4px 10px;
+  font-size: 12px; color: var(--text-dim);
+}
+.player-chip-remove{
+  background:none; border:none; color: var(--text-mute); font-size: 14px; line-height:1; cursor:pointer;
+  width: 16px; height: 16px; display:flex; align-items:center; justify-content:center; border-radius: 50%;
+}
+.player-chip-remove:hover{ background: var(--panel-hi); color: var(--danger); }
+
+/* ---------- Notification bell (account menu) ---------- */
+.notif-bell{
+  position: relative; background:none; border:none; color: var(--text-dim); cursor:pointer;
+  width: 32px; height: 32px; display:flex; align-items:center; justify-content:center; border-radius: 50%;
+}
+.notif-bell:hover{ background: var(--panel-hi); color: var(--text); }
+.notif-bell svg{ width: 17px; height: 17px; stroke: currentColor; fill:none; stroke-width: 2; }
+.notif-bell-dot{
+  position:absolute; top: 4px; right: 5px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--danger); border: 1.5px solid var(--bg); display:none;
+}
+.notif-bell.has-unread .notif-bell-dot{ display:block; }
+.notif-panel{
+  position:absolute; top: calc(100% + 8px); right:0; width: 320px; max-height: 380px; overflow-y:auto;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.4); display:none; z-index: 40;
+}
+.notif-panel.open{ display:block; }
+.notif-panel-empty{ padding: 20px 12px; text-align:center; color: var(--text-mute); font-size: 12.5px; }
+.notif-item{
+  display:block; padding: 10px 10px; border-radius: 7px; text-decoration:none; color: inherit;
+  border-bottom: 1px solid var(--border-soft);
+}
+.notif-item:last-child{ border-bottom:none; }
+.notif-item:hover{ background: var(--panel-hi); }
+.notif-item.unread{ background: rgba(201,161,90,0.08); }
+.notif-item-title{ font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.notif-item-body{ font-size: 12px; color: var(--text-mute); overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.notif-item-time{ font-size: 10.5px; color: var(--text-mute); margin-top: 4px; font-family:'JetBrains Mono', monospace; }
 
 .modal-msg{ text-align:center; font-size: 13px; color: var(--text-dim); margin-top: 10px; }

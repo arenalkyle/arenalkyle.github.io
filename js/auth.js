@@ -8,9 +8,10 @@
 // window 'auth:change' CustomEvent whenever sign-in state changes.
 (function () {
   var GOOGLE_ICON = '<svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.9-2.26 5.36-4.78 7.02l7.73 6c4.51-4.18 7.09-10.36 7.09-17.49z"/><path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.94 23.94 0 0 0 0 24c0 3.86.92 7.51 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.9-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.17 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.97 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+  var BELL_ICON = '<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
 
   var els = {};
-  var state = { user: null, profile: null, permissions: new Set(), turnstileToken: null, turnstileWidgetId: null };
+  var state = { user: null, profile: null, permissions: new Set(), notifications: [], turnstileToken: null, turnstileWidgetId: null };
   var lockTimer = null;
 
   function injectMarkup() {
@@ -287,6 +288,33 @@
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   }
 
+  function fmtNotifTime(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+      d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function renderNotifPanel(panel) {
+    if (!state.notifications.length) {
+      panel.innerHTML = '<div class="notif-panel-empty">No notifications yet.</div>';
+      return;
+    }
+    panel.innerHTML = '';
+    state.notifications.forEach(function (n) {
+      var item = document.createElement('a');
+      item.className = 'notif-item' + (n.read ? '' : ' unread');
+      item.href = n.link || '#';
+      item.innerHTML =
+        '<div class="notif-item-title">' + n.title + '</div>' +
+        (n.body ? '<div class="notif-item-body">' + n.body + '</div>' : '') +
+        '<div class="notif-item-time">' + fmtNotifTime(n.created_at) + '</div>';
+      item.addEventListener('click', function () {
+        if (!n.read) window.Auth.markNotificationRead(n.id);
+      });
+      panel.appendChild(item);
+    });
+  }
+
   function renderAuthBox() {
     var containers = document.querySelectorAll('#authBox');
     containers.forEach(function (box) {
@@ -302,8 +330,13 @@
         ? '<img src="' + avatarUrl + '" alt="">'
         : '<span class="avatar-fallback">' + initials(name) + '</span>';
       var badgeHtml = (role && role !== 'user') ? '<span class="role-badge">' + role + '</span>' : '';
+      var hasUnread = state.notifications.some(function (n) { return !n.read; });
       box.innerHTML =
         '<div class="auth-box">' +
+          '<button class="notif-bell' + (hasUnread ? ' has-unread' : '') + '" aria-label="Notifications">' +
+            BELL_ICON + '<span class="notif-bell-dot"></span>' +
+          '</button>' +
+          '<div class="notif-panel"></div>' +
           '<div class="account-chip" tabindex="0">' +
             '<span class="account-avatar">' + avatarHtml + '</span>' +
             '<span>' + name + '</span>' + badgeHtml +
@@ -317,7 +350,11 @@
         '</div>';
       var chip = box.querySelector('.account-chip');
       var menu = box.querySelector('.account-menu');
-      chip.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.toggle('open'); });
+      var bell = box.querySelector('.notif-bell');
+      var notifPanel = box.querySelector('.notif-panel');
+      renderNotifPanel(notifPanel);
+      chip.addEventListener('click', function (e) { e.stopPropagation(); notifPanel.classList.remove('open'); menu.classList.toggle('open'); });
+      bell.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.remove('open'); notifPanel.classList.toggle('open'); });
       var adminBtn = box.querySelector('.menuAdmin');
       if (adminBtn) adminBtn.addEventListener('click', function () { window.location.href = 'admin.html'; });
       box.querySelector('.menuEditProfile').addEventListener('click', function () { window.location.href = 'profile.html'; });
@@ -328,6 +365,7 @@
 
   document.addEventListener('click', function () {
     document.querySelectorAll('.account-menu.open').forEach(function (m) { m.classList.remove('open'); });
+    document.querySelectorAll('.notif-panel.open').forEach(function (m) { m.classList.remove('open'); });
   });
 
   // ---------------- Session / permissions ----------------
@@ -347,9 +385,17 @@
     });
   }
 
+  function loadNotifications(user) {
+    if (!user) { state.notifications = []; return Promise.resolve(); }
+    return window.sb.from('notifications').select('*').eq('user_id', user.id)
+      .order('created_at', { ascending: false }).limit(20).then(function (res) {
+        state.notifications = res.data || [];
+      });
+  }
+
   function refresh(user) {
     state.user = user || null;
-    return loadProfileAndPermissions(state.user).then(function () {
+    return Promise.all([loadProfileAndPermissions(state.user), loadNotifications(state.user)]).then(function () {
       renderAuthBox();
       window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: state.user, profile: state.profile } }));
     });
@@ -381,10 +427,17 @@
     openLogin: openModal,
     openSignup: function () { openModal(); showSignupView(); },
     refreshProfile: function () { return refresh(state.user); },
+    markNotificationRead: function (id) {
+      var n = state.notifications.find(function (x) { return x.id === id; });
+      if (n) n.read = true;
+      renderAuthBox();
+      return window.sb.from('notifications').update({ read: true }).eq('id', id);
+    },
     logout: function () {
       return window.sb.auth.signOut();
     },
     get user() { return state.user; },
-    get profile() { return state.profile; }
+    get profile() { return state.profile; },
+    get notifications() { return state.notifications.slice(); }
   };
 })();

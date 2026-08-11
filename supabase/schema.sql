@@ -177,6 +177,208 @@ $$;
 grant execute on function public.replace_user_rankings(text[]) to authenticated;
 
 -- ============================================================
+-- notifications: short messages surfaced in the account menu,
+-- e.g. "your expert review is ready." Written only by trusted
+-- server-side code (security-definer RPCs like
+-- admin_respond_expert_review below) -- users can only read their
+-- own and mark them read, never insert or write anything else.
+-- ============================================================
+create table public.notifications (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  title      text not null,
+  body       text,
+  link       text,
+  read       boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index notifications_user_idx on public.notifications (user_id, created_at desc);
+alter table public.notifications enable row level security;
+
+create policy notifications_select_own on public.notifications
+  for select using (user_id = auth.uid());
+
+create policy notifications_update_own on public.notifications
+  for update using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+grant select on public.notifications to authenticated;
+grant update (read) on public.notifications to authenticated;
+-- no insert grant -- rows only ever come from security-definer RPCs.
+
+-- ============================================================
+-- expert_review_requests: paid review requests (Team Review /
+-- Trade Analysis / Start-Sit / Personal Coach) users submit from
+-- expert-reviews.html, and experts/admins (has_permission
+-- 'manage_expert_reviews') work through from expert-reviews.html's
+-- queue and expert-reviews-log.html.
+--
+-- STUB: there is no Stripe integration yet. A real checkout would
+-- create a Stripe Checkout Session and this row would start life as
+-- status='pending_payment' until a webhook confirmed the charge --
+-- see the comment inside submit_expert_review() below for exactly
+-- where that needs to go. Until then every request is recorded as
+-- already 'submitted', unpaid, the moment the form is filled out.
+-- ============================================================
+create table public.expert_review_requests (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid not null references auth.users(id) on delete cascade,
+  review_type        text not null check (review_type in ('team_review','trade_analysis','start_sit','personal_coach')),
+  tier               text,
+  price_cents        integer not null,
+  team_name          text,
+  payload            jsonb not null default '{}',
+  notes              text,
+  status             text not null default 'submitted' check (status in ('submitted','in_review','completed')),
+  assigned_expert_id uuid references auth.users(id),
+  response           text,
+  responded_at       timestamptz,
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
+);
+
+create index expert_review_requests_created_idx on public.expert_review_requests (created_at desc);
+alter table public.expert_review_requests enable row level security;
+
+create policy expert_review_requests_select on public.expert_review_requests
+  for select using (
+    user_id = auth.uid()
+    or public.has_permission(auth.uid(), 'manage_expert_reviews')
+  );
+
+grant select on public.expert_review_requests to authenticated;
+-- all writes go through the RPCs below.
+
+create or replace function public.submit_expert_review(
+  p_review_type text,
+  p_tier text,
+  p_team_name text,
+  p_payload jsonb,
+  p_notes text
+)
+returns uuid
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  price integer;
+  new_id uuid;
+begin
+  if uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  price := case p_review_type
+    when 'team_review' then 500
+    when 'trade_analysis' then 100
+    when 'start_sit' then 100
+    when 'personal_coach' then case when p_tier = '25' then 2500 else 1000 end
+    else null
+  end;
+  if price is null then
+    raise exception 'invalid review_type: %', p_review_type;
+  end if;
+
+  -- STUB: this is where a real integration would instead create a
+  -- Stripe Checkout Session (probably via an edge function, since the
+  -- Stripe secret key can't live in client code) and only insert this
+  -- row -- with status='pending_payment' -- once that session exists,
+  -- flipping it to 'submitted' from a webhook after payment succeeds.
+  insert into public.expert_review_requests (user_id, review_type, tier, price_cents, team_name, payload, notes)
+  values (uid, p_review_type, p_tier, price, p_team_name, coalesce(p_payload, '{}'), p_notes)
+  returning id into new_id;
+
+  return new_id;
+end;
+$$;
+
+grant execute on function public.submit_expert_review(text, text, text, jsonb, text) to authenticated;
+
+-- ============================================================
+-- admin_list_expert_reviews: powers both the "incoming requests"
+-- queue on expert-reviews.html and the full history table on
+-- expert-reviews-log.html. Search matches username or email, same
+-- pattern as admin_list_users.
+-- ============================================================
+create or replace function public.admin_list_expert_reviews(search text default null)
+returns table (
+  id uuid,
+  username text,
+  email text,
+  review_type text,
+  tier text,
+  price_cents integer,
+  team_name text,
+  payload jsonb,
+  notes text,
+  status text,
+  assigned_expert_username text,
+  response text,
+  responded_at timestamptz,
+  created_at timestamptz
+)
+language sql stable security definer set search_path = public
+as $$
+  select r.id, p.username, u.email, r.review_type, r.tier, r.price_cents, r.team_name,
+         r.payload, r.notes, r.status, ep.username, r.response, r.responded_at, r.created_at
+    from public.expert_review_requests r
+    join public.profiles p on p.id = r.user_id
+    join auth.users u on u.id = r.user_id
+    left join public.profiles ep on ep.id = r.assigned_expert_id
+   where public.has_permission(auth.uid(), 'manage_expert_reviews')
+     and (
+       search is null or search = ''
+       or p.username ilike '%' || search || '%'
+       or u.email ilike '%' || search || '%'
+     )
+   order by r.created_at desc;
+$$;
+
+grant execute on function public.admin_list_expert_reviews(text) to authenticated;
+
+-- ============================================================
+-- admin_respond_expert_review: the only way a request's response is
+-- ever written. Used both for the first reply (status starts
+-- 'submitted') and for editing + resending an already-completed one
+-- from expert-reviews-log.html -- either way it stamps the calling
+-- expert as assigned_expert_id (so replies are never anonymous) and
+-- fires a fresh notification to the requester.
+-- ============================================================
+create or replace function public.admin_respond_expert_review(
+  p_request_id uuid,
+  p_response text
+)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  target_user uuid;
+begin
+  if not public.has_permission(auth.uid(), 'manage_expert_reviews') then
+    raise exception 'not permitted';
+  end if;
+
+  update public.expert_review_requests
+     set response = p_response,
+         status = 'completed',
+         assigned_expert_id = auth.uid(),
+         responded_at = now(),
+         updated_at = now()
+   where id = p_request_id
+   returning user_id into target_user;
+
+  if target_user is null then
+    raise exception 'request not found';
+  end if;
+
+  insert into public.notifications (user_id, title, body, link)
+  values (target_user, 'Your expert review is ready', coalesce(p_response, ''), 'expert-reviews.html');
+end;
+$$;
+
+grant execute on function public.admin_respond_expert_review(uuid, text) to authenticated;
+
+-- ============================================================
 -- login_attempts: backs the per-IP lockout enforced by the
 -- "login" edge function. No RLS policies are added on purpose --
 -- only the edge function (using the service-role key, which
@@ -348,7 +550,8 @@ insert into public.permissions (key, description) values
   ('view_admin_panel', 'Access the Admin panel'),
   ('manage_users', 'Change other users'' roles'),
   ('manage_role_policies', 'Add or remove permissions granted to each role'),
-  ('moderate_rankings', 'View any user''s private rankings for moderation');
+  ('moderate_rankings', 'View any user''s private rankings for moderation'),
+  ('manage_expert_reviews', 'View, respond to, and resend paid expert review requests');
 
 insert into public.role_permissions (role, permission_key, allowed) values
   ('user',   'create_edit_own_rankings',   true),
@@ -359,4 +562,5 @@ insert into public.role_permissions (role, permission_key, allowed) values
   ('admin',  'view_admin_panel',           true),
   ('admin',  'manage_users',               true),
   ('admin',  'manage_role_policies',       true),
-  ('admin',  'moderate_rankings',          true);
+  ('admin',  'moderate_rankings',          true),
+  ('admin',  'manage_expert_reviews',      true);
