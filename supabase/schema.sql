@@ -18,6 +18,7 @@ create table public.profiles (
     'TB','TEN','WAS'
   )),
   role          text not null default 'user' check (role in ('user','editor','admin')),
+  subscription_tier text not null default 'free' check (subscription_tier in ('free','premium','elite','legendary')),
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -52,6 +53,14 @@ begin
     new.role := old.role;
     new.id := old.id;
   end if;
+  -- subscription_tier is never touched by a plain UPDATE either (it's
+  -- not in the column grant below) -- this is a second guard, same
+  -- reasoning as role. Only set_my_subscription_tier() below can
+  -- change it.
+  if auth.uid() is not null
+     and not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+    new.subscription_tier := old.subscription_tier;
+  end if;
   return new;
 end;
 $$;
@@ -59,6 +68,77 @@ $$;
 create trigger protect_profile_fields_trigger
   before update on public.profiles
   for each row execute procedure public.protect_profile_fields();
+
+-- ============================================================
+-- subscription_tier_limits / subscription_perks: the numbers behind
+-- subscriptions.html's four plans (Free/Premium/Elite/Legendary) --
+-- how many leagues a tier can link in My Teams, and how many free
+-- expert-review credits (Start/Sit, Trade Analysis, Team Review)
+-- each tier gets per week or month. Kept as data instead of
+-- hardcoded logic so a plan change is a data edit, not a redeploy.
+--
+-- STUB: like Expert Reviews' checkout, there's no real Stripe
+-- subscription billing yet -- set_my_subscription_tier() below just
+-- sets the tier directly. See that function's comment for where a
+-- real integration replaces it.
+-- ============================================================
+create table public.subscription_tier_limits (
+  tier          text primary key check (tier in ('free','premium','elite','legendary')),
+  league_limit  integer not null
+);
+
+insert into public.subscription_tier_limits (tier, league_limit) values
+  ('free', 3),
+  ('premium', 10),
+  ('elite', 15),
+  ('legendary', 25);
+
+create table public.subscription_perks (
+  tier        text not null check (tier in ('free','premium','elite','legendary')),
+  review_type text not null check (review_type in ('team_review','trade_analysis','start_sit')),
+  period      text not null check (period in ('week','month')),
+  quota       integer not null,
+  primary key (tier, review_type)
+);
+
+insert into public.subscription_perks (tier, review_type, period, quota) values
+  ('free',      'start_sit',      'month', 1),
+  ('premium',   'start_sit',      'week',  1),
+  ('premium',   'trade_analysis', 'week',  1),
+  ('premium',   'team_review',    'month', 1),
+  ('elite',     'start_sit',      'week',  2),
+  ('elite',     'trade_analysis', 'week',  2),
+  ('elite',     'team_review',    'week',  2),
+  ('legendary', 'start_sit',      'week',  4),
+  ('legendary', 'trade_analysis', 'week',  4),
+  ('legendary', 'team_review',    'week',  3);
+
+alter table public.subscription_tier_limits enable row level security;
+alter table public.subscription_perks enable row level security;
+create policy subscription_tier_limits_select_all on public.subscription_tier_limits for select using (true);
+create policy subscription_perks_select_all on public.subscription_perks for select using (true);
+grant select on public.subscription_tier_limits to anon, authenticated;
+grant select on public.subscription_perks to anon, authenticated;
+
+create or replace function public.set_my_subscription_tier(new_tier text)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'not authenticated';
+  end if;
+  if new_tier not in ('free','premium','elite','legendary') then
+    raise exception 'invalid tier: %', new_tier;
+  end if;
+  -- STUB: a real integration would create a Stripe Checkout Session
+  -- (subscription mode) here instead of setting the tier immediately,
+  -- and only apply it from a webhook once the subscription is active.
+  update public.profiles set subscription_tier = new_tier, updated_at = now() where id = auth.uid();
+end;
+$$;
+
+grant execute on function public.set_my_subscription_tier(text) to authenticated;
 
 -- ============================================================
 -- permissions / role_permissions: the "policies" tying roles to
@@ -263,6 +343,10 @@ declare
   uid uuid := auth.uid();
   price integer;
   new_id uuid;
+  my_tier text;
+  perk record;
+  period_start timestamptz;
+  used_this_period integer;
 begin
   if uid is null then
     raise exception 'not authenticated';
@@ -279,11 +363,28 @@ begin
     raise exception 'invalid review_type: %', p_review_type;
   end if;
 
+  -- Subscription free credits (subscriptions.html's per-tier perks,
+  -- e.g. Premium's "1x Trade Analysis per week (Free)"). personal_coach
+  -- isn't part of any tier's perks, so it always costs full price.
+  select subscription_tier into my_tier from public.profiles where id = uid;
+  select * into perk from public.subscription_perks where tier = my_tier and review_type = p_review_type;
+  if found then
+    period_start := case perk.period when 'week' then now() - interval '7 days' else now() - interval '1 month' end;
+    select count(*) into used_this_period
+      from public.expert_review_requests
+     where user_id = uid and review_type = p_review_type and price_cents = 0 and created_at >= period_start;
+    if used_this_period < perk.quota then
+      price := 0;
+    end if;
+  end if;
+
   -- STUB: this is where a real integration would instead create a
   -- Stripe Checkout Session (probably via an edge function, since the
   -- Stripe secret key can't live in client code) and only insert this
   -- row -- with status='pending_payment' -- once that session exists,
   -- flipping it to 'submitted' from a webhook after payment succeeds.
+  -- (Free-credit requests from the block above have nothing to charge,
+  -- so those still go straight to 'submitted'.)
   insert into public.expert_review_requests (user_id, review_type, tier, price_cents, team_name, payload, notes)
   values (uid, p_review_type, p_tier, price, p_team_name, coalesce(p_payload, '{}'), p_notes)
   returning id into new_id;
@@ -404,8 +505,29 @@ create table public.fantasy_teams (
 create index fantasy_teams_owner_idx on public.fantasy_teams (owner_id, created_at);
 alter table public.fantasy_teams enable row level security;
 
-create policy fantasy_teams_owner_all on public.fantasy_teams
-  for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+create policy fantasy_teams_select on public.fantasy_teams
+  for select using (owner_id = auth.uid());
+
+create policy fantasy_teams_update on public.fantasy_teams
+  for update using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+create policy fantasy_teams_delete on public.fantasy_teams
+  for delete using (owner_id = auth.uid());
+
+-- Insert additionally enforces the caller's subscription tier's
+-- league_limit (subscription_tier_limits) -- "Supports N leagues" on
+-- subscriptions.html.
+create policy fantasy_teams_insert on public.fantasy_teams
+  for insert with check (
+    owner_id = auth.uid()
+    and (select count(*) from public.fantasy_teams where owner_id = auth.uid())
+        < (
+          select stl.league_limit
+            from public.subscription_tier_limits stl
+            join public.profiles p on p.subscription_tier = stl.tier
+           where p.id = auth.uid()
+        )
+  );
 
 grant select, insert, update, delete on public.fantasy_teams to authenticated;
 
@@ -436,10 +558,12 @@ create policy analyzed_trades_select_all on public.analyzed_trades
   for select using (true);
 
 create policy analyzed_trades_insert on public.analyzed_trades
-  for insert with check (user_id is not distinct from auth.uid());
+  for insert with check (
+    user_id = auth.uid() and public.has_permission(auth.uid(), 'log_analyzed_trades')
+  );
 
 grant select on public.analyzed_trades to anon, authenticated;
-grant insert on public.analyzed_trades to anon, authenticated;
+grant insert on public.analyzed_trades to authenticated;
 
 -- ============================================================
 -- login_attempts: backs the per-IP lockout enforced by the
@@ -605,6 +729,99 @@ $$;
 grant execute on function public.admin_list_users() to authenticated;
 
 -- ============================================================
+-- posts: the Posts page. category is a fixed set shown as filter
+-- pills; subscriber_only marks a post as gated by subscription
+-- (blurred client-side for non-subscribers -- the body itself is
+-- still readable by anyone with select access, same tradeoff as
+-- avatar_url being a plain pasted URL rather than real storage).
+--
+-- "Experts" here means the editor role, same as everywhere else in
+-- this schema (create_edit_own_rankings, publish_official_rankings)
+-- -- there's no separate 'expert' role. create_posts lets an
+-- expert/admin write drafts; only publish_posts (admin by default)
+-- can flip status, enforced by protect_post_status() below the same
+-- way protect_profile_fields() guards role; delete_posts (admin by
+-- default) is the only way a post can be deleted at all.
+-- ============================================================
+create table public.posts (
+  id               uuid primary key default gen_random_uuid(),
+  author_id        uuid not null references auth.users(id) on delete cascade,
+  title            text not null,
+  category         text not null check (category in (
+    'game_review','week_review','injury_report','trade_targets','drafts','articles'
+  )),
+  thumbnail_url    text,
+  video_url        text,
+  excerpt          text,
+  body             text not null,
+  subscriber_only  boolean not null default false,
+  status           text not null default 'draft' check (status in ('draft','published')),
+  published_at     timestamptz,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+create index posts_status_created_idx on public.posts (status, created_at desc);
+alter table public.posts enable row level security;
+
+create policy posts_select on public.posts
+  for select using (
+    status = 'published'
+    or author_id = auth.uid()
+    or public.has_permission(auth.uid(), 'publish_posts')
+  );
+
+create policy posts_insert on public.posts
+  for insert with check (author_id = auth.uid() and public.has_permission(auth.uid(), 'create_posts'));
+
+create policy posts_update on public.posts
+  for update
+  using (author_id = auth.uid() or public.has_permission(auth.uid(), 'publish_posts'))
+  with check (author_id = auth.uid() or public.has_permission(auth.uid(), 'publish_posts'));
+
+create policy posts_delete on public.posts
+  for delete using (public.has_permission(auth.uid(), 'delete_posts'));
+
+grant select, insert, update, delete on public.posts to authenticated;
+grant select on public.posts to anon;
+
+-- Guards status on BOTH insert and update -- an insert that tries to
+-- set status='published' directly (skipping the publish_posts check
+-- entirely) is just as much a hole as an update that does the same.
+create or replace function public.protect_post_status()
+returns trigger
+language plpgsql security definer set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.status = 'published'
+       and auth.uid() is not null
+       and not public.has_permission(auth.uid(), 'publish_posts') then
+      new.status := 'draft';
+    end if;
+    if new.status = 'published' then
+      new.published_at := now();
+    end if;
+  else
+    if new.status is distinct from old.status
+       and auth.uid() is not null
+       and not public.has_permission(auth.uid(), 'publish_posts') then
+      new.status := old.status;
+    end if;
+    if new.status = 'published' and old.status is distinct from new.status then
+      new.published_at := now();
+    end if;
+    new.updated_at := now();
+  end if;
+  return new;
+end;
+$$;
+
+create trigger protect_post_status_trigger
+  before insert or update on public.posts
+  for each row execute procedure public.protect_post_status();
+
+-- ============================================================
 -- Seed permissions + default role policies
 -- ============================================================
 insert into public.permissions (key, description) values
@@ -614,16 +831,26 @@ insert into public.permissions (key, description) values
   ('manage_users', 'Change other users'' roles'),
   ('manage_role_policies', 'Add or remove permissions granted to each role'),
   ('moderate_rankings', 'View any user''s private rankings for moderation'),
-  ('manage_expert_reviews', 'View, respond to, and resend paid expert review requests');
+  ('manage_expert_reviews', 'View, respond to, and resend paid expert review requests'),
+  ('log_analyzed_trades', 'Save an analyzed trade to the public Recent Trades feed on the Trade Analyzer'),
+  ('create_posts', 'Create and edit draft posts on the Posts page'),
+  ('publish_posts', 'Publish or unpublish any post'),
+  ('delete_posts', 'Delete any post');
 
 insert into public.role_permissions (role, permission_key, allowed) values
   ('user',   'create_edit_own_rankings',   true),
   ('editor', 'create_edit_own_rankings',   true),
   ('editor', 'publish_official_rankings',  true),
+  ('editor', 'log_analyzed_trades',        true),
+  ('editor', 'create_posts',               true),
   ('admin',  'create_edit_own_rankings',   true),
   ('admin',  'publish_official_rankings',  true),
   ('admin',  'view_admin_panel',           true),
   ('admin',  'manage_users',               true),
   ('admin',  'manage_role_policies',       true),
   ('admin',  'moderate_rankings',          true),
-  ('admin',  'manage_expert_reviews',      true);
+  ('admin',  'manage_expert_reviews',      true),
+  ('admin',  'log_analyzed_trades',        true),
+  ('admin',  'create_posts',               true),
+  ('admin',  'publish_posts',              true),
+  ('admin',  'delete_posts',               true);

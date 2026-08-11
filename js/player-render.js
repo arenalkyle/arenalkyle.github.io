@@ -54,31 +54,39 @@
   }
 
   // ---------------- ESPN headshot resolution ----------------
+  // ESPN's bulk "core athletes" endpoint (v3/sports/football/nfl/athletes)
+  // looks like a complete player directory but isn't -- most of its
+  // entries are non-player game events ("[Downed]", "[Touchback]", ...)
+  // and it reliably fails to include real current players (e.g.
+  // Jahmyr Gibbs is nowhere in its ~20k records). Per-team rosters are
+  // what ESPN's own site actually uses and are accurate, so the index
+  // is built from all 32 of those instead -- 32 requests instead of 21,
+  // but every one of them returns real players.
   var espn = { index: null, promise: null };
-  var ESPN_PAGE_COUNT = 21;
+  var ESPN_TEAM_CODES = [
+    'ari', 'atl', 'bal', 'buf', 'car', 'chi', 'cin', 'cle', 'dal', 'den', 'det', 'gb', 'hou', 'ind',
+    'jax', 'kc', 'lac', 'lar', 'lv', 'mia', 'min', 'ne', 'no', 'nyg', 'nyj', 'phi', 'pit', 'sea', 'sf',
+    'tb', 'ten', 'wsh'
+  ];
 
   function loadEspnIndex() {
     if (espn.promise) return espn.promise;
-    var urls = [];
-    for (var i = 1; i <= ESPN_PAGE_COUNT; i++) {
-      urls.push('https://sports.core.api.espn.com/v3/sports/football/nfl/athletes?limit=1000&page=' + i);
-    }
+    var urls = ESPN_TEAM_CODES.map(function (code) {
+      return 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/' + code + '/roster';
+    });
     espn.promise = Promise.all(urls.map(function (u) {
       return fetch(u).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
-    })).then(function (pages) {
+    })).then(function (teams) {
       var index = new Map();
-      pages.forEach(function (page) {
-        if (!page || !page.items) return;
-        page.items.forEach(function (item) {
-          if (!item.fullName || !item.id) return;
-          var key = normalizeName(item.fullName);
-          if (!key) return;
-          var existing = index.get(key);
-          // prefer active players when a name collides
-          if (!existing || (item.active && !existing._active)) {
+      teams.forEach(function (team) {
+        if (!team || !team.athletes) return;
+        team.athletes.forEach(function (group) {
+          (group.items || []).forEach(function (item) {
+            if (!item.fullName || !item.id) return;
+            var key = normalizeName(item.fullName);
+            if (!key) return;
             index.set(key, item.id);
-            if (item.active) index.set(key + '__active', true);
-          }
+          });
         });
       });
       espn.index = index;

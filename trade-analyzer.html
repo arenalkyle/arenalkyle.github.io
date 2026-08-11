@@ -48,9 +48,12 @@
 }
 .bar-ends{ display:flex; justify-content:space-between; margin-top: 8px; font-size: 11.5px; color: var(--text-mute); }
 .bar-labels{
-  display:flex; justify-content:space-between; margin-top: 4px; font-family:'JetBrains Mono', monospace;
+  display:grid; grid-template-columns: repeat(5, 1fr); margin-top: 4px; font-family:'JetBrains Mono', monospace;
   font-size: 9.5px; letter-spacing: 0.02em; color: var(--text-mute); text-transform: uppercase;
 }
+.bar-labels span{ text-align:center; }
+.bar-labels span:first-child{ text-align:left; }
+.bar-labels span:last-child{ text-align:right; }
 
 .analyzer-actions{ display:flex; justify-content:center; margin-top: 20px; }
 .log-trade-btn{
@@ -127,7 +130,7 @@
           <div class="bar-ends"><span>&larr; Favors Side B</span><span>Favors Side A &rarr;</span></div>
         </div>
 
-        <div class="analyzer-actions">
+        <div class="analyzer-actions" id="analyzerActions" style="display:none">
           <button class="log-trade-btn" id="logTradeBtn" disabled>Add to Recent Trades</button>
         </div>
         <div class="log-status" id="logStatus"></div>
@@ -173,8 +176,15 @@
     barPointer: document.getElementById('barPointer'),
     logBtn: document.getElementById('logTradeBtn'),
     logStatus: document.getElementById('logStatus'),
-    feedList: document.getElementById('feedList')
+    feedList: document.getElementById('feedList'),
+    analyzerActions: document.getElementById('analyzerActions')
   };
+
+  function applyLogPermission(){
+    els.analyzerActions.style.display = (window.Auth && window.Auth.can('log_analyzed_trades')) ? '' : 'none';
+  }
+  window.addEventListener('auth:change', applyLogPermission);
+  if (window.Auth){ window.Auth.ready.then(applyLogPermission); }
 
   var pickerA = window.PlayerPicker.create(document.getElementById('pickerA'), { max: MAX_PER_SIDE, onChange: recompute });
   var pickerB = window.PlayerPicker.create(document.getElementById('pickerB'), { max: MAX_PER_SIDE, onChange: recompute });
@@ -334,7 +344,7 @@
   }
 
   function loadFeed(){
-    window.sb.from('analyzed_trades').select('*').order('created_at', { ascending: false }).limit(20).then(function(res){
+    window.sb.from('analyzed_trades').select('*').order('created_at', { ascending: false }).limit(8).then(function(res){
       var rows = res.data || [];
       var userIds = Array.from(new Set(rows.map(function(r){ return r.user_id; }).filter(Boolean)));
       if (!userIds.length){ renderFeed(rows); return; }

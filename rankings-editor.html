@@ -21,6 +21,25 @@ html, body{ overflow: hidden; }
 
 .editor-shell{ position: relative; flex: 1 1 auto; min-height: 0; display:flex; flex-direction: column; }
 
+.search-field{ position: relative; margin-bottom: 10px; flex: 0 0 auto; }
+.search-field svg{
+  position:absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px; stroke: var(--text-mute); pointer-events: none;
+}
+.search-field input{
+  width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 11px 14px 11px 40px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; outline: none; transition: border-color .15s ease, background .15s ease;
+}
+.search-field input::placeholder{ color: var(--text-mute); }
+.search-field input:focus{ border-color: var(--brass); background: var(--panel-hi); }
+.search-clear{
+  position:absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none;
+  color: var(--text-mute); font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer;
+  padding: 4px 8px; display:none;
+}
+.search-clear:hover{ color: var(--brass-bright); }
+
 .save-bar{
   flex: 0 0 auto; display:flex; align-items:center; justify-content:space-between; gap: 10px;
   margin-bottom: 10px; padding: 10px 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
@@ -130,6 +149,7 @@ td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
 .gate-overlay p{ font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-dim); text-align:center; max-width: 280px; }
 .editor-shell.locked .table-shell{ filter: blur(6px); pointer-events: none; }
 .editor-shell.locked .save-bar{ filter: blur(6px); pointer-events: none; }
+.editor-shell.locked .search-field{ filter: blur(6px); pointer-events: none; }
 
 @media (max-width: 640px){
   .wrap{ padding: 16px 12px 12px; }
@@ -154,6 +174,12 @@ td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
         <div class="gate-overlay" id="gateOverlay">
           <p>Log in to create and edit your own player rankings.</p>
           <button class="login-btn" id="gateLoginBtn">Log In</button>
+        </div>
+
+        <div class="search-field">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input id="editorSearch" type="text" placeholder="Search a player&hellip;" autocomplete="off">
+          <button class="search-clear" id="editorSearchClear" type="button">clear</button>
         </div>
 
         <div class="save-bar">
@@ -210,10 +236,26 @@ td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
     tbody: document.getElementById('tbody'),
     saveBtn: document.getElementById('saveBtn'),
     saveStatus: document.getElementById('saveStatus'),
-    selectionHint: document.getElementById('selectionHint')
+    selectionHint: document.getElementById('selectionHint'),
+    search: document.getElementById('editorSearch'),
+    searchClear: document.getElementById('editorSearchClear')
   };
+  var searchQuery = '';
+  function normalizeQuery(str){ return (str || '').toLowerCase().trim(); }
 
   els.gateLoginBtn.addEventListener('click', function(){ window.Auth.openLogin(); });
+  els.search.addEventListener('input', function(e){
+    searchQuery = e.target.value;
+    els.searchClear.style.display = searchQuery ? 'block' : 'none';
+    renderTable();
+  });
+  els.searchClear.addEventListener('click', function(){
+    searchQuery = '';
+    els.search.value = '';
+    els.searchClear.style.display = 'none';
+    els.search.focus();
+    renderTable();
+  });
 
   var playersByKey = {};
   window.__PLAYERS__.forEach(function(p){ playersByKey[window.playerKey(p)] = p; });
@@ -452,14 +494,35 @@ td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
     return tr;
   }
 
+  function matchesSearch(key){
+    var q = normalizeQuery(searchQuery);
+    if (!q) return true;
+    var p = playersByKey[key];
+    if (!p) return false;
+    return normalizeQuery(p.name).indexOf(q) !== -1 || normalizeQuery(p.team).indexOf(q) !== -1;
+  }
+
   function renderTable(){
     var posRankMap = computePosRanks();
     var frag = document.createDocumentFragment();
+    var shown = 0;
     order.forEach(function(key, idx){
+      if (!matchesSearch(key)) return;
       var tr = renderRow(key, idx, posRankMap);
-      if (tr) frag.appendChild(tr);
+      if (tr) { frag.appendChild(tr); shown++; }
     });
     els.tbody.innerHTML = '';
+    if (shown === 0 && normalizeQuery(searchQuery)){
+      var tr = document.createElement('tr');
+      var td = document.createElement('td');
+      td.colSpan = 14;
+      td.style.textAlign = 'center';
+      td.style.color = 'var(--text-mute)';
+      td.style.padding = '24px';
+      td.textContent = 'No players match "' + searchQuery + '".';
+      tr.appendChild(td);
+      frag.appendChild(tr);
+    }
     els.tbody.appendChild(frag);
   }
 

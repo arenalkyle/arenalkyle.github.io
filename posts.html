@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Posts &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 32px; max-width: 1100px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.page-head{ margin-bottom: 14px; }
+.page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
+.page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
+
+.tabs-row{ display:flex; gap: 8px; margin-bottom: 14px; }
+.tab-btn{
+  background: var(--panel-alt); border: 1px solid var(--border); color: var(--text-dim); font-size: 12.5px;
+  font-family: 'JetBrains Mono', monospace; padding: 8px 16px; border-radius: 999px; cursor:pointer;
+}
+.tab-btn.active{ border-color: var(--brass); color: var(--brass-bright); background: rgba(201,161,90,0.1); }
+
+.category-pills{ display:flex; flex-wrap:wrap; gap: 8px; margin-bottom: 20px; }
+.cat-pill{
+  border: 1px solid var(--border); background: var(--panel-alt); color: var(--text-dim); font-size: 11.5px;
+  font-family: 'JetBrains Mono', monospace; padding: 7px 13px; border-radius: 999px; cursor:pointer;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.cat-pill.active{ color: #17100e; font-weight: 700; border-color: transparent; }
+
+.posts-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 860px){ .posts-grid{ grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px){ .posts-grid{ grid-template-columns: 1fr; } }
+
+.post-card{
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow:hidden;
+  display:flex; flex-direction:column; cursor:pointer; transition: border-color .12s ease;
+}
+.post-card:hover{ border-color: var(--brass-dim); }
+.post-card-thumb{ width:100%; aspect-ratio: 16/9; background: var(--panel-alt); overflow:hidden; position:relative; }
+.post-card-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.post-card-thumb .no-thumb{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; color: var(--text-mute); font-size:11px; font-family:'JetBrains Mono', monospace; }
+.post-card-body{ padding: 13px 15px 15px; display:flex; flex-direction:column; gap: 8px; flex: 1 1 auto; }
+.post-card-tag-row{ display:flex; align-items:center; gap: 6px; }
+.post-card-tag{
+  display:inline-block; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  font-family: 'JetBrains Mono', monospace; padding: 3px 9px; border-radius: 999px; color: #17100e; font-weight: 700;
+}
+.crown-icon{ width: 13px; height: 13px; color: var(--brass); flex-shrink:0; }
+.post-card-title{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 15px; color: var(--text); margin: 0; line-height: 1.3; }
+.post-card-excerpt{ font-size: 12.5px; color: var(--text-mute); line-height: 1.5; flex: 1 1 auto; }
+.post-card-footer{ display:flex; align-items:center; gap: 8px; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
+.post-card-avatar{ width: 22px; height: 22px; border-radius: 50%; overflow:hidden; background: var(--panel-alt); border: 1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.post-card-avatar img{ width:100%; height:100%; object-fit:cover; }
+.post-card-avatar .fallback{ font-family:'Fraunces', serif; font-weight:700; font-size:9px; color: var(--brass-dim); }
+.post-card-author{ font-size: 11.5px; color: var(--text-mute); }
+.post-card-status{ margin-left:auto; font-size: 9.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--text-mute); font-family:'JetBrains Mono', monospace; }
+
+.new-post-card{
+  border: 1px dashed var(--border); border-radius: 12px; display:flex; align-items:center; justify-content:center;
+  min-height: 180px; cursor:pointer; color: var(--brass); background:none;
+}
+.new-post-card:hover{ border-color: var(--brass); color: var(--brass-bright); }
+.new-post-card .plus{ font-size: 34px; font-weight: 300; }
+
+.empty-state{ padding: 50px 20px; text-align:center; color: var(--text-mute); font-size: 13px; grid-column: 1/-1; }
+
+/* ---------- Post detail modal ---------- */
+.modal-box.post-modal{ max-width: 640px; max-height: 88vh; overflow-y:auto; text-align:left; }
+.modal-box.post-modal .modal-title{ text-align:left; margin: 0 0 6px; }
+.post-detail-thumb{ width:100%; max-height: 280px; object-fit:cover; border-radius:10px; margin-bottom: 14px; display:block; }
+.post-detail-video{ width:100%; aspect-ratio:16/9; border-radius:10px; margin-bottom:14px; border:none; }
+.post-detail-meta{ display:flex; align-items:center; gap: 10px; margin-bottom: 14px; flex-wrap:wrap; }
+.post-detail-author{ display:flex; align-items:center; gap: 8px; font-size: 12.5px; color: var(--text-mute); margin-left:auto; }
+.post-detail-body{ font-size: 14px; color: var(--text-dim); line-height: 1.7; white-space: pre-wrap; position:relative; }
+.post-detail-body.blurred{ filter: blur(7px); user-select:none; pointer-events:none; max-height: 220px; overflow:hidden; }
+.paywall-note{
+  display:none; text-align:center; padding: 20px; margin-top: -60px; position:relative; z-index: 2;
+  background: linear-gradient(to bottom, transparent, var(--panel) 60%);
+}
+.paywall-note.show{ display:block; }
+.paywall-note a{ color: var(--brass); font-weight:700; }
+.post-detail-actions{ display:flex; gap: 10px; margin-top: 20px; flex-wrap:wrap; }
+.pd-btn{
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 9px 16px; border-radius: 8px; cursor:pointer;
+  border: 1px solid var(--border); background: var(--panel-alt); color: var(--text);
+}
+.pd-btn.primary{ background: var(--brass); border-color: var(--brass); color: #241209; font-weight:700; }
+.pd-btn.danger{ border-color: var(--danger); color: var(--danger); background:none; }
+
+/* ---------- Create/edit modal ---------- */
+.modal-box.editor-modal{ max-width: 620px; max-height: 88vh; overflow-y:auto; text-align:left; }
+.modal-box.editor-modal .modal-title{ text-align:left; }
+.editor-modal textarea{
+  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; color: var(--text); font-size: 13.5px; outline:none; resize: vertical; font-family: inherit;
+}
+.subscriber-toggle{ display:flex; align-items:center; gap: 8px; margin: 4px 0 14px; font-size: 12.5px; color: var(--text-dim); }
+.subscriber-toggle input{ accent-color: var(--brass); width: 15px; height: 15px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+      <div class="page-head">
+        <h1>Posts</h1>
+        <p>Analysis and updates from The Board's experts.</p>
+      </div>
+
+      <div class="tabs-row" id="tabsRow" style="display:none">
+        <button class="tab-btn active" data-tab="published">Published</button>
+        <button class="tab-btn" data-tab="unpublished">Unpublished</button>
+      </div>
+
+      <div class="category-pills" id="categoryPills"></div>
+
+      <div class="posts-grid" id="postsGrid"></div>
+
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="detailModal">
+  <div class="modal-box post-modal" id="detailModalBox">
+    <button class="modal-close" id="detailModalClose" aria-label="Close">&times;</button>
+    <span class="post-card-tag" id="detailTag"></span>
+    <h2 class="modal-title" id="detailTitle" style="margin-top:8px"></h2>
+    <div class="post-detail-meta">
+      <span class="post-card-status" id="detailDate" style="margin-left:0"></span>
+      <div class="post-detail-author" id="detailAuthor"></div>
+    </div>
+    <img class="post-detail-thumb" id="detailThumb" style="display:none">
+    <div id="detailVideoWrap"></div>
+    <div id="detailBodyWrap">
+      <div class="post-detail-body" id="detailBody"></div>
+      <div class="paywall-note" id="paywallNote">
+        <p>This post is for subscribers. <a href="subscriptions.html">See plans &rarr;</a></p>
+      </div>
+    </div>
+    <div class="post-detail-actions" id="detailActions"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="editorModal">
+  <div class="modal-box editor-modal" id="editorModalBox">
+    <button class="modal-close" id="editorModalClose" aria-label="Close">&times;</button>
+    <h2 class="modal-title" id="editorModalTitle">New Post</h2>
+
+    <div class="modal-field">
+      <label>Title</label>
+      <input type="text" id="fTitle">
+    </div>
+    <div class="modal-field">
+      <label>Category</label>
+      <select id="fCategory"></select>
+    </div>
+    <div class="modal-field">
+      <label>Thumbnail URL</label>
+      <input type="text" id="fThumb" placeholder="https://example.com/image.jpg">
+    </div>
+    <div class="modal-field">
+      <label>Video URL (optional, YouTube)</label>
+      <input type="text" id="fVideo" placeholder="https://www.youtube.com/watch?v=...">
+    </div>
+    <div class="modal-field">
+      <label>Excerpt (shown on the card)</label>
+      <input type="text" id="fExcerpt" maxlength="160">
+    </div>
+    <div class="modal-field">
+      <label>Body</label>
+      <textarea id="fBody" rows="8"></textarea>
+    </div>
+    <label class="subscriber-toggle">
+      <input type="checkbox" id="fSubscriberOnly">
+      Subscriber-only post
+    </label>
+    <div class="field-error" id="editorError"></div>
+    <button class="modal-submit" id="editorSave">Save Draft</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+(function(){
+  var CROWN_SVG = '<svg class="crown-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 18h14l1.4-8.5-4.9 3-3.5-6-3.5 6-4.9-3L5 18z"/></svg>';
+
+  var CATEGORIES = [
+    { key: 'game_review',   label: 'Game Review',   color: '#5b9bd5' },
+    { key: 'week_review',   label: 'Week Reviews',  color: '#7a9e4e' },
+    { key: 'injury_report', label: 'Injury Reports', color: '#e0685c' },
+    { key: 'trade_targets', label: 'Trade Targets',  color: '#c9a15a' },
+    { key: 'drafts',        label: 'Drafts',         color: '#b07cc6' },
+    { key: 'articles',      label: 'Articles',       color: '#d98a3d' }
+  ];
+  var CAT_BY_KEY = {};
+  CATEGORIES.forEach(function(c){ CAT_BY_KEY[c.key] = c; });
+
+  var els = {
+    tabsRow: document.getElementById('tabsRow'),
+    pills: document.getElementById('categoryPills'),
+    grid: document.getElementById('postsGrid'),
+
+    detailModal: document.getElementById('detailModal'),
+    detailModalClose: document.getElementById('detailModalClose'),
+    detailTag: document.getElementById('detailTag'),
+    detailTitle: document.getElementById('detailTitle'),
+    detailDate: document.getElementById('detailDate'),
+    detailAuthor: document.getElementById('detailAuthor'),
+    detailThumb: document.getElementById('detailThumb'),
+    detailVideoWrap: document.getElementById('detailVideoWrap'),
+    detailBody: document.getElementById('detailBody'),
+    paywallNote: document.getElementById('paywallNote'),
+    detailActions: document.getElementById('detailActions'),
+
+    editorModal: document.getElementById('editorModal'),
+    editorModalClose: document.getElementById('editorModalClose'),
+    editorModalTitle: document.getElementById('editorModalTitle'),
+    fTitle: document.getElementById('fTitle'),
+    fCategory: document.getElementById('fCategory'),
+    fThumb: document.getElementById('fThumb'),
+    fVideo: document.getElementById('fVideo'),
+    fExcerpt: document.getElementById('fExcerpt'),
+    fBody: document.getElementById('fBody'),
+    fSubscriberOnly: document.getElementById('fSubscriberOnly'),
+    editorError: document.getElementById('editorError'),
+    editorSave: document.getElementById('editorSave')
+  };
+
+  CATEGORIES.forEach(function(c){
+    var opt = document.createElement('option');
+    opt.value = c.key; opt.textContent = c.label;
+    els.fCategory.appendChild(opt);
+  });
+
+  var activeTab = 'published';
+  var activeCategory = 'all';
+  var allPosts = [];
+  var profilesById = {};
+
+  function canCreate(){ return !!(window.Auth && window.Auth.can('create_posts')); }
+  function canPublish(){ return !!(window.Auth && window.Auth.can('publish_posts')); }
+  function canDelete(){ return !!(window.Auth && window.Auth.can('delete_posts')); }
+  function isSubscriber(){
+    var t = window.Auth && window.Auth.profile && window.Auth.profile.subscription_tier;
+    return !!t && t !== 'free';
+  }
+
+  function initials(name){
+    var parts = String(name || '').replace(/[^a-zA-Z0-9 ]/g, '').split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function fmtDate(iso){
+    if (!iso) return '';
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  // ---------------- Category pills ----------------
+  function renderPills(){
+    els.pills.innerHTML = '';
+    var all = document.createElement('button');
+    all.className = 'cat-pill' + (activeCategory === 'all' ? ' active' : '');
+    if (activeCategory === 'all') all.style.background = 'var(--brass)';
+    all.textContent = 'All';
+    all.addEventListener('click', function(){ activeCategory = 'all'; renderPills(); renderGrid(); });
+    els.pills.appendChild(all);
+
+    CATEGORIES.forEach(function(c){
+      var btn = document.createElement('button');
+      btn.className = 'cat-pill' + (activeCategory === c.key ? ' active' : '');
+      if (activeCategory === c.key) btn.style.background = c.color;
+      btn.textContent = c.label;
+      btn.addEventListener('click', function(){ activeCategory = c.key; renderPills(); renderGrid(); });
+      els.pills.appendChild(btn);
+    });
+  }
+
+  // ---------------- Grid ----------------
+  function authorInfo(post){
+    var p = profilesById[post.author_id];
+    return p || { username: 'Unknown', avatar_url: null };
+  }
+
+  function buildCard(post){
+    var card = document.createElement('div');
+    card.className = 'post-card';
+    var cat = CAT_BY_KEY[post.category];
+    var author = authorInfo(post);
+
+    var thumbHtml = post.thumbnail_url
+      ? '<img src="' + post.thumbnail_url + '" alt="">'
+      : '<div class="no-thumb">No thumbnail</div>';
+
+    var avatarHtml = author.avatar_url
+      ? '<img src="' + author.avatar_url + '" alt="">'
+      : '<span class="fallback">' + initials(author.username) + '</span>';
+
+    card.innerHTML =
+      '<div class="post-card-thumb">' + thumbHtml + '</div>' +
+      '<div class="post-card-body">' +
+        '<div class="post-card-tag-row">' +
+          (post.subscriber_only ? CROWN_SVG : '') +
+          '<span class="post-card-tag" style="background:' + cat.color + '">' + cat.label + '</span>' +
+        '</div>' +
+        '<h3 class="post-card-title">' + post.title + '</h3>' +
+        '<p class="post-card-excerpt">' + (post.excerpt || '') + '</p>' +
+        '<div class="post-card-footer">' +
+          '<span class="post-card-avatar">' + avatarHtml + '</span>' +
+          '<span class="post-card-author">' + author.username + '</span>' +
+          (post.status === 'draft' ? '<span class="post-card-status">Draft</span>' : '') +
+        '</div>' +
+      '</div>';
+
+    card.addEventListener('click', function(){ openDetail(post); });
+    return card;
+  }
+
+  function renderGrid(){
+    els.grid.innerHTML = '';
+
+    if (activeTab === 'unpublished' && canCreate()){
+      var newCard = document.createElement('button');
+      newCard.className = 'new-post-card';
+      newCard.innerHTML = '<span class="plus">+</span>';
+      newCard.addEventListener('click', function(){ openEditor(null); });
+      els.grid.appendChild(newCard);
+    }
+
+    var list = allPosts.filter(function(p){
+      var statusMatch = activeTab === 'published' ? p.status === 'published' : p.status === 'draft';
+      var catMatch = activeCategory === 'all' || p.category === activeCategory;
+      return statusMatch && catMatch;
+    });
+
+    if (!list.length && !(activeTab === 'unpublished' && canCreate())){
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = activeTab === 'published' ? 'No posts yet.' : 'Nothing unpublished right now.';
+      els.grid.appendChild(empty);
+      return;
+    }
+
+    list.forEach(function(p){ els.grid.appendChild(buildCard(p)); });
+  }
+
+  function loadPosts(){
+    var statusFilter = activeTab === 'published' ? 'published' : 'draft';
+    window.sb.from('posts').select('*').eq('status', statusFilter).order('created_at', { ascending: false }).then(function(res){
+      allPosts = res.data || [];
+      var authorIds = Array.from(new Set(allPosts.map(function(p){ return p.author_id; })));
+      if (!authorIds.length){ renderGrid(); return; }
+      window.sb.from('profiles').select('id,username,avatar_url').in('id', authorIds).then(function(profRes){
+        profilesById = {};
+        (profRes.data || []).forEach(function(p){ profilesById[p.id] = p; });
+        renderGrid();
+      });
+    });
+  }
+
+  // ---------------- Detail modal ----------------
+  function youtubeEmbedUrl(url){
+    var m = String(url || '').match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+    return m ? ('https://www.youtube.com/embed/' + m[1]) : null;
+  }
+
+  var detailTarget = null;
+
+  function openDetail(post){
+    detailTarget = post;
+    var cat = CAT_BY_KEY[post.category];
+    els.detailTag.textContent = cat.label;
+    els.detailTag.style.background = cat.color;
+    els.detailTitle.textContent = post.title;
+    els.detailDate.textContent = post.status === 'published' ? fmtDate(post.published_at) : 'Draft';
+    var author = authorInfo(post);
+    els.detailAuthor.innerHTML =
+      '<span class="post-card-avatar">' + (author.avatar_url ? '<img src="' + author.avatar_url + '">' : '<span class="fallback">' + initials(author.username) + '</span>') + '</span>' +
+      '<span>' + author.username + '</span>';
+
+    if (post.thumbnail_url){ els.detailThumb.src = post.thumbnail_url; els.detailThumb.style.display = ''; }
+    else { els.detailThumb.style.display = 'none'; }
+
+    var embed = youtubeEmbedUrl(post.video_url);
+    els.detailVideoWrap.innerHTML = embed ? '<iframe class="post-detail-video" src="' + embed + '" allowfullscreen></iframe>' : '';
+
+    var isAuthor = window.Auth && window.Auth.user && window.Auth.user.id === post.author_id;
+    var blocked = post.subscriber_only && !isSubscriber() && !isAuthor && !canPublish();
+    els.detailBody.textContent = post.body;
+    els.detailBody.classList.toggle('blurred', blocked);
+    els.paywallNote.classList.toggle('show', blocked);
+
+    var actions = [];
+    if (isAuthor || canPublish()){
+      actions.push('<button class="pd-btn" id="pdEdit">Edit</button>');
+    }
+    if (canPublish()){
+      actions.push(post.status === 'published'
+        ? '<button class="pd-btn" id="pdUnpublish">Unpublish</button>'
+        : '<button class="pd-btn primary" id="pdPublish">Publish</button>');
+    }
+    if (canDelete()){
+      actions.push('<button class="pd-btn danger" id="pdDelete">Delete</button>');
+    }
+    els.detailActions.innerHTML = actions.join('');
+
+    var editBtn = document.getElementById('pdEdit');
+    if (editBtn) editBtn.addEventListener('click', function(){ closeDetail(); openEditor(post); });
+    var pubBtn = document.getElementById('pdPublish');
+    if (pubBtn) pubBtn.addEventListener('click', function(){ setStatus(post, 'published'); });
+    var unpubBtn = document.getElementById('pdUnpublish');
+    if (unpubBtn) unpubBtn.addEventListener('click', function(){ setStatus(post, 'draft'); });
+    var delBtn = document.getElementById('pdDelete');
+    if (delBtn) delBtn.addEventListener('click', function(){ deletePost(post); });
+
+    els.detailModal.classList.add('open');
+  }
+
+  function closeDetail(){ els.detailModal.classList.remove('open'); detailTarget = null; }
+  els.detailModalClose.addEventListener('click', closeDetail);
+  els.detailModal.addEventListener('click', function(e){ if (e.target === els.detailModal) closeDetail(); });
+
+  function setStatus(post, status){
+    window.sb.from('posts').update({ status: status }).eq('id', post.id).then(function(res){
+      if (res.error){ alert('Could not update: ' + res.error.message); return; }
+      closeDetail();
+      loadPosts();
+    });
+  }
+
+  function deletePost(post){
+    window.sb.from('posts').delete().eq('id', post.id).then(function(res){
+      if (res.error){ alert('Could not delete: ' + res.error.message); return; }
+      closeDetail();
+      loadPosts();
+    });
+  }
+
+  // ---------------- Create/edit modal ----------------
+  var editorTarget = null;
+
+  function openEditor(post){
+    editorTarget = post;
+    els.editorModalTitle.textContent = post ? 'Edit Post' : 'New Post';
+    els.fTitle.value = post ? post.title : '';
+    els.fCategory.value = post ? post.category : CATEGORIES[0].key;
+    els.fThumb.value = post ? (post.thumbnail_url || '') : '';
+    els.fVideo.value = post ? (post.video_url || '') : '';
+    els.fExcerpt.value = post ? (post.excerpt || '') : '';
+    els.fBody.value = post ? post.body : '';
+    els.fSubscriberOnly.checked = post ? !!post.subscriber_only : false;
+    els.editorError.textContent = '';
+    els.editorSave.textContent = 'Save Draft';
+    els.editorModal.classList.add('open');
+  }
+  function closeEditor(){ els.editorModal.classList.remove('open'); editorTarget = null; }
+  els.editorModalClose.addEventListener('click', closeEditor);
+  els.editorModal.addEventListener('click', function(e){ if (e.target === els.editorModal) closeEditor(); });
+
+  els.editorSave.addEventListener('click', function(){
+    var title = els.fTitle.value.trim();
+    var body = els.fBody.value.trim();
+    if (!title || !body){
+      els.editorError.textContent = 'Title and body are required.';
+      return;
+    }
+    els.editorError.textContent = '';
+    els.editorSave.disabled = true;
+    els.editorSave.textContent = 'Saving…';
+
+    var row = {
+      title: title,
+      category: els.fCategory.value,
+      thumbnail_url: els.fThumb.value.trim() || null,
+      video_url: els.fVideo.value.trim() || null,
+      excerpt: els.fExcerpt.value.trim() || body.slice(0, 140),
+      body: body,
+      subscriber_only: els.fSubscriberOnly.checked
+    };
+
+    var query;
+    if (editorTarget){
+      query = window.sb.from('posts').update(row).eq('id', editorTarget.id);
+    } else {
+      row.author_id = window.Auth.user.id;
+      query = window.sb.from('posts').insert(row);
+    }
+
+    query.then(function(res){
+      els.editorSave.disabled = false;
+      els.editorSave.textContent = 'Save Draft';
+      if (res.error){
+        els.editorError.textContent = 'Could not save: ' + res.error.message;
+        return;
+      }
+      closeEditor();
+      loadPosts();
+    });
+  });
+
+  // ---------------- Tabs ----------------
+  document.querySelectorAll('.tab-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      activeTab = btn.getAttribute('data-tab');
+      document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      loadPosts();
+    });
+  });
+
+  function applyGate(){
+    els.tabsRow.style.display = canCreate() ? '' : 'none';
+    if (!canCreate() && activeTab === 'unpublished'){
+      activeTab = 'published';
+      document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab') === 'published'); });
+    }
+    loadPosts();
+  }
+
+  renderPills();
+  window.addEventListener('auth:change', applyGate);
+  if (window.Auth){ window.Auth.ready.then(applyGate); } else { loadPosts(); }
+})();
+</script>
+</body>
+</html>
