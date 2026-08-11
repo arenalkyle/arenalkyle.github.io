@@ -8,13 +8,18 @@
 -- ID generation needed anywhere in this schema.
 -- ============================================================
 create table public.profiles (
-  id           uuid primary key references auth.users(id) on delete cascade,
-  username     text not null unique,
-  display_name text,
-  avatar_url   text,
-  role         text not null default 'user' check (role in ('user','editor','admin')),
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+  id            uuid primary key references auth.users(id) on delete cascade,
+  username      text not null unique,
+  display_name  text,
+  avatar_url    text,
+  favorite_team text check (favorite_team in (
+    'ARI','ATL','BAL','BUF','CAR','CHI','CIN','CLE','DAL','DEN','DET','GB','HOU','IND',
+    'JAX','KC','LAC','LAR','LV','MIA','MIN','NE','NO','NYG','NYJ','PHI','PIT','SEA','SF',
+    'TB','TEN','WAS'
+  )),
+  role          text not null default 'user' check (role in ('user','editor','admin')),
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
 );
 
 alter table public.profiles enable row level security;
@@ -30,7 +35,7 @@ create policy profiles_update_own on public.profiles
   for update using (auth.uid() = id) with check (auth.uid() = id);
 
 grant select on public.profiles to anon, authenticated;
-grant update (username, display_name, avatar_url) on public.profiles to authenticated;
+grant update (username, display_name, avatar_url, favorite_team) on public.profiles to authenticated;
 
 create or replace function public.protect_profile_fields()
 returns trigger
@@ -39,7 +44,11 @@ security definer
 set search_path = public
 as $$
 begin
-  if not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
+  -- auth.uid() is null for direct SQL-editor / superuser connections
+  -- (no PostgREST JWT context) -- those are trusted, so only enforce
+  -- the admin check for requests that came in as an authenticated user.
+  if auth.uid() is not null
+     and not exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') then
     new.role := old.role;
     new.id := old.id;
   end if;

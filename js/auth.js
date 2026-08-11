@@ -13,36 +13,6 @@
   var state = { user: null, profile: null, permissions: new Set(), turnstileToken: null, turnstileWidgetId: null };
   var lockTimer = null;
 
-  // TEMP no-backend workaround -- see CLAUDE.md "Kyle/Wesley login workaround"
-  // for what this is and what to remove once real Supabase auth is live.
-  var LOCAL_OVERRIDE_KEY = 'ff_local_auth_override';
-  var LOCAL_LOGIN_OVERRIDES = {
-    kyle: { password: 'wesley', role: 'admin', displayName: 'Kyle' },
-    wesley: { password: 'kyle', role: 'editor', displayName: 'Wesley' }
-  };
-  var LOCAL_ROLE_PERMS = {
-    admin: ['create_edit_own_rankings', 'view_admin_panel'],
-    editor: ['create_edit_own_rankings']
-  };
-
-  function getStoredOverrideUsername() {
-    try { return localStorage.getItem(LOCAL_OVERRIDE_KEY); } catch (e) { return null; }
-  }
-
-  function applyLocalOverride(username) {
-    var cfg = LOCAL_LOGIN_OVERRIDES[username];
-    state.user = { id: 'local-' + username, email: null, isLocalOverride: true };
-    state.profile = { username: cfg.displayName, role: cfg.role };
-    state.permissions = new Set(LOCAL_ROLE_PERMS[cfg.role] || []);
-  }
-
-  function clearLocalOverride() {
-    try { localStorage.removeItem(LOCAL_OVERRIDE_KEY); } catch (e) {}
-    state.user = null;
-    state.profile = null;
-    state.permissions = new Set();
-  }
-
   function injectMarkup() {
     var modal = document.createElement('div');
     modal.className = 'modal-backdrop';
@@ -211,18 +181,6 @@
     if (!identifier) { showError('loginIdentifierError', "We couldn't find an account with that username or email."); return; }
     if (!password) { showError('loginPasswordError', 'Enter your password.'); return; }
 
-    // TEMP no-backend workaround -- see CLAUDE.md.
-    var overrideUsername = identifier.toLowerCase();
-    var override = LOCAL_LOGIN_OVERRIDES[overrideUsername];
-    if (override && password.toLowerCase() === override.password) {
-      try { localStorage.setItem(LOCAL_OVERRIDE_KEY, overrideUsername); } catch (e) {}
-      applyLocalOverride(overrideUsername);
-      renderAuthBox();
-      window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: state.user, profile: state.profile } }));
-      closeModal();
-      return;
-    }
-
     els.loginSubmit.disabled = true;
     els.loginSubmit.textContent = 'Signing in…';
 
@@ -352,6 +310,7 @@
           '</div>' +
           '<div class="account-menu">' +
             (state.permissions.has('view_admin_panel') ? '<button class="menuAdmin">Admin Panel</button>' : '') +
+            '<button class="menuEditProfile">Edit Profile</button>' +
             '<button class="menuProfile">Create/Edit Rankings</button>' +
             '<button class="menuLogout">Log Out</button>' +
           '</div>' +
@@ -361,6 +320,7 @@
       chip.addEventListener('click', function (e) { e.stopPropagation(); menu.classList.toggle('open'); });
       var adminBtn = box.querySelector('.menuAdmin');
       if (adminBtn) adminBtn.addEventListener('click', function () { window.location.href = 'admin.html'; });
+      box.querySelector('.menuEditProfile').addEventListener('click', function () { window.location.href = 'profile.html'; });
       box.querySelector('.menuProfile').addEventListener('click', function () { window.location.href = 'rankings-editor.html'; });
       box.querySelector('.menuLogout').addEventListener('click', function () { window.Auth.logout(); });
     });
@@ -407,24 +367,11 @@
   els.loginPassword.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
   els.loginIdentifier.addEventListener('keydown', function (e) { if (e.key === 'Enter') doLogin(); });
 
-  // TEMP no-backend workaround -- see CLAUDE.md. A stored override wins
-  // over whatever (nonexistent) real Supabase session is on disk, and
-  // real auth-state events are ignored while an override is active so
-  // they can't silently log the override user back out.
-  var storedOverrideUsername = getStoredOverrideUsername();
-  var ready;
-  if (storedOverrideUsername && LOCAL_LOGIN_OVERRIDES[storedOverrideUsername]) {
-    applyLocalOverride(storedOverrideUsername);
-    renderAuthBox();
-    ready = Promise.resolve();
-  } else {
-    ready = window.sb.auth.getSession().then(function (res) {
-      return refresh(res.data.session ? res.data.session.user : null);
-    });
-  }
+  var ready = window.sb.auth.getSession().then(function (res) {
+    return refresh(res.data.session ? res.data.session.user : null);
+  });
 
   window.sb.auth.onAuthStateChange(function (_event, session) {
-    if (getStoredOverrideUsername()) return;
     refresh(session ? session.user : null);
   });
 
@@ -433,13 +380,8 @@
     can: function (key) { return state.permissions.has(key); },
     openLogin: openModal,
     openSignup: function () { openModal(); showSignupView(); },
+    refreshProfile: function () { return refresh(state.user); },
     logout: function () {
-      if (state.user && state.user.isLocalOverride) {
-        clearLocalOverride();
-        renderAuthBox();
-        window.dispatchEvent(new CustomEvent('auth:change', { detail: { user: null, profile: null } }));
-        return Promise.resolve();
-      }
       return window.sb.auth.signOut();
     },
     get user() { return state.user; },

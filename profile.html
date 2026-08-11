@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Edit Profile &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 24px; max-width: 560px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.page-head{ margin-bottom: 18px; }
+.page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
+.page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
+
+.panel{
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 22px;
+}
+
+.avatar-preview-row{ display:flex; align-items:center; gap: 16px; margin-bottom: 18px; }
+.avatar-preview{
+  width: 72px; height: 72px; border-radius: 50%; overflow: hidden; flex-shrink:0;
+  background: var(--panel-alt); border: 1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+}
+.avatar-preview img{ width:100%; height:100%; object-fit: cover; display:block; }
+.avatar-preview .avatar-fallback{
+  font-family:'Fraunces', serif; font-weight:700; font-size:20px; color: var(--brass-dim);
+}
+.avatar-preview-hint{ font-size: 12px; color: var(--text-mute); }
+
+.team-row{ display:flex; align-items:center; gap: 10px; }
+.team-row .modal-field{ flex: 1 1 auto; margin-bottom: 0; }
+.team-logo-preview{
+  width: 40px; height: 40px; border-radius: 8px; overflow: hidden; flex-shrink:0;
+  background: var(--panel-alt); border: 1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+}
+.team-logo-preview img{ width: 100%; height: 100%; object-fit: contain; padding: 4px; display:block; }
+
+.profile-status{ font-size: 12.5px; color: var(--text-mute); margin-top: 14px; min-height: 16px; }
+.profile-status.error{ color: var(--danger); }
+
+.gate-block{ display:none; flex-direction: column; align-items:center; justify-content:center; gap: 12px; padding: 80px 20px; text-align:center; }
+.gate-block.show{ display:flex; }
+.gate-block p{ font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-mute); max-width: 360px; }
+#profileContent{ display:none; }
+#profileContent.show{ display:block; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+      <div class="page-head">
+        <h1>Edit Profile</h1>
+        <p>Update how you appear across The Board.</p>
+      </div>
+
+      <div class="gate-block" id="gateBlock">
+        <p>Log in to edit your profile.</p>
+        <button class="login-btn" id="gateLoginBtn">Log In</button>
+      </div>
+
+      <div id="profileContent">
+        <div class="panel">
+          <div class="avatar-preview-row">
+            <div class="avatar-preview" id="avatarPreview"></div>
+            <span class="avatar-preview-hint">Paste a link to an image (e.g. from Google, Imgur, etc.)</span>
+          </div>
+
+          <div class="modal-field">
+            <label>Avatar URL</label>
+            <input type="text" id="avatarUrlInput" placeholder="https://example.com/photo.jpg" autocomplete="off">
+            <div class="field-error" id="avatarUrlError"></div>
+          </div>
+
+          <div class="modal-field">
+            <label>Display Name</label>
+            <input type="text" id="displayNameInput" autocomplete="off">
+            <div class="field-error" id="displayNameError"></div>
+          </div>
+
+          <div class="modal-field">
+            <label>Favorite Team</label>
+            <div class="team-row">
+              <select id="favoriteTeamInput">
+                <option value="">No favorite team</option>
+              </select>
+              <div class="team-logo-preview" id="teamLogoPreview"></div>
+            </div>
+          </div>
+
+          <button class="modal-submit" id="saveProfileBtn">Save Changes</button>
+          <div class="profile-status" id="profileStatus"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+(function(){
+  var TEAMS = [
+    ['ARI', 'Arizona Cardinals'], ['ATL', 'Atlanta Falcons'], ['BAL', 'Baltimore Ravens'],
+    ['BUF', 'Buffalo Bills'], ['CAR', 'Carolina Panthers'], ['CHI', 'Chicago Bears'],
+    ['CIN', 'Cincinnati Bengals'], ['CLE', 'Cleveland Browns'], ['DAL', 'Dallas Cowboys'],
+    ['DEN', 'Denver Broncos'], ['DET', 'Detroit Lions'], ['GB', 'Green Bay Packers'],
+    ['HOU', 'Houston Texans'], ['IND', 'Indianapolis Colts'], ['JAX', 'Jacksonville Jaguars'],
+    ['KC', 'Kansas City Chiefs'], ['LAC', 'Los Angeles Chargers'], ['LAR', 'Los Angeles Rams'],
+    ['LV', 'Las Vegas Raiders'], ['MIA', 'Miami Dolphins'], ['MIN', 'Minnesota Vikings'],
+    ['NE', 'New England Patriots'], ['NO', 'New Orleans Saints'], ['NYG', 'New York Giants'],
+    ['NYJ', 'New York Jets'], ['PHI', 'Philadelphia Eagles'], ['PIT', 'Pittsburgh Steelers'],
+    ['SEA', 'Seattle Seahawks'], ['SF', 'San Francisco 49ers'], ['TB', 'Tampa Bay Buccaneers'],
+    ['TEN', 'Tennessee Titans'], ['WAS', 'Washington Commanders']
+  ];
+
+  function teamLogoUrl(team){ return 'https://a.espncdn.com/i/teamlogos/nfl/500/' + team.toLowerCase() + '.png'; }
+
+  function initials(name){
+    var parts = String(name || '').replace(/[^a-zA-Z0-9 ]/g, '').split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  var els = {
+    gate: document.getElementById('gateBlock'),
+    gateLoginBtn: document.getElementById('gateLoginBtn'),
+    content: document.getElementById('profileContent'),
+    avatarPreview: document.getElementById('avatarPreview'),
+    avatarUrlInput: document.getElementById('avatarUrlInput'),
+    avatarUrlError: document.getElementById('avatarUrlError'),
+    displayNameInput: document.getElementById('displayNameInput'),
+    displayNameError: document.getElementById('displayNameError'),
+    favoriteTeamInput: document.getElementById('favoriteTeamInput'),
+    teamLogoPreview: document.getElementById('teamLogoPreview'),
+    saveBtn: document.getElementById('saveProfileBtn'),
+    status: document.getElementById('profileStatus')
+  };
+  els.gateLoginBtn.addEventListener('click', function(){ window.Auth.openLogin(); });
+
+  TEAMS.forEach(function(t){
+    var opt = document.createElement('option');
+    opt.value = t[0];
+    opt.textContent = t[1];
+    els.favoriteTeamInput.appendChild(opt);
+  });
+
+  function renderAvatarPreview(url, name){
+    els.avatarPreview.innerHTML = '';
+    if (url){
+      var img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      img.onerror = function(){ els.avatarPreview.innerHTML = '<span class="avatar-fallback">' + initials(name) + '</span>'; };
+      els.avatarPreview.appendChild(img);
+    } else {
+      els.avatarPreview.innerHTML = '<span class="avatar-fallback">' + initials(name) + '</span>';
+    }
+  }
+
+  function renderTeamLogoPreview(team){
+    els.teamLogoPreview.innerHTML = team ? '<img src="' + teamLogoUrl(team) + '" alt="">' : '';
+  }
+
+  function clearErrors(){
+    els.avatarUrlError.textContent = '';
+    els.avatarUrlError.classList.remove('show');
+    els.displayNameError.textContent = '';
+    els.displayNameError.classList.remove('show');
+    els.status.textContent = '';
+    els.status.classList.remove('error');
+  }
+
+  function showError(el, msg){ el.textContent = msg; el.classList.add('show'); }
+
+  function loadProfile(){
+    var profile = window.Auth.profile;
+    if (!profile) return;
+    els.displayNameInput.value = profile.display_name || '';
+    els.avatarUrlInput.value = profile.avatar_url || '';
+    els.favoriteTeamInput.value = profile.favorite_team || '';
+    renderAvatarPreview(profile.avatar_url, profile.display_name || profile.username);
+    renderTeamLogoPreview(profile.favorite_team);
+  }
+
+  els.avatarUrlInput.addEventListener('input', function(){
+    renderAvatarPreview(els.avatarUrlInput.value.trim(), els.displayNameInput.value.trim() || window.Auth.profile.username);
+  });
+  els.favoriteTeamInput.addEventListener('change', function(){
+    renderTeamLogoPreview(els.favoriteTeamInput.value);
+  });
+
+  els.saveBtn.addEventListener('click', function(){
+    clearErrors();
+    var displayName = els.displayNameInput.value.trim();
+    var avatarUrl = els.avatarUrlInput.value.trim();
+    var favoriteTeam = els.favoriteTeamInput.value;
+
+    if (!displayName){ showError(els.displayNameError, 'Display name cannot be empty.'); return; }
+    if (avatarUrl && !/^https?:\/\//i.test(avatarUrl)){
+      showError(els.avatarUrlError, 'Enter a full URL starting with http:// or https://');
+      return;
+    }
+
+    els.saveBtn.disabled = true;
+    els.status.textContent = 'Saving…';
+
+    window.sb.from('profiles').update({
+      display_name: displayName,
+      avatar_url: avatarUrl || null,
+      favorite_team: favoriteTeam || null
+    }).eq('id', window.Auth.user.id).then(function(res){
+      els.saveBtn.disabled = false;
+      if (res.error){
+        els.status.textContent = 'Could not save: ' + res.error.message;
+        els.status.classList.add('error');
+        return;
+      }
+      els.status.textContent = 'Saved.';
+      return window.Auth.refreshProfile();
+    });
+  });
+
+  function applyGate(){
+    var loggedIn = !!(window.Auth && window.Auth.user);
+    els.gate.classList.toggle('show', !loggedIn);
+    els.content.classList.toggle('show', loggedIn);
+    if (loggedIn) loadProfile();
+  }
+
+  window.addEventListener('auth:change', applyGate);
+  if (window.Auth){
+    window.Auth.ready.then(applyGate);
+  }
+})();
+</script>
+</body>
+</html>
