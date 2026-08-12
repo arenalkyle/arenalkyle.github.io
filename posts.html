@@ -66,14 +66,44 @@
 
 .empty-state{ padding: 50px 20px; text-align:center; color: var(--text-mute); font-size: 13px; grid-column: 1/-1; }
 
+/* ---------- Shared Markdown-rendered content (preview + detail) ---------- */
+.md-content{ font-size: 14px; color: var(--text-dim); line-height: 1.7; }
+.md-content > *:first-child{ margin-top: 0; }
+.md-content > *:last-child{ margin-bottom: 0; }
+.md-content p{ margin: 0 0 14px; }
+.md-content h1, .md-content h2, .md-content h3{ font-family: 'Fraunces', serif; color: var(--text); margin: 20px 0 10px; line-height: 1.3; }
+.md-content h1{ font-size: 20px; } .md-content h2{ font-size: 17px; } .md-content h3{ font-size: 15px; }
+.md-content a{ color: var(--brass); text-decoration: underline; text-underline-offset: 2px; }
+.md-content a:hover{ color: var(--brass-bright); }
+.md-content img{ max-width: 100%; border-radius: 8px; display: block; margin: 10px 0; }
+.md-content ul, .md-content ol{ margin: 0 0 14px; padding-left: 22px; }
+.md-content li{ margin-bottom: 4px; }
+.md-content blockquote{ border-left: 3px solid var(--brass-dim); margin: 0 0 14px; padding: 2px 14px; color: var(--text-mute); font-style: italic; }
+.md-content code{ background: var(--panel-alt); border: 1px solid var(--border); padding: 1px 5px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+.md-content pre{ background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; overflow-x: auto; margin: 0 0 14px; }
+.md-content pre code{ background: none; border: none; padding: 0; }
+.md-content hr{ border: none; border-top: 1px solid var(--border-soft); margin: 18px 0; }
+.preview-placeholder{ color: var(--text-mute); font-style: italic; }
+
+.post-inline-video{ position: relative; width: 100%; aspect-ratio: 16/9; margin: 14px 0; border-radius: 10px; overflow: hidden; background: var(--panel-alt); }
+.post-inline-video iframe{ width: 100%; height: 100%; border: none; display:block; }
+
+.pc-card{ display:flex; align-items:center; gap: 12px; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; margin: 14px 0; max-width: 360px; transition: border-color .12s ease; }
+.pc-card:not(.pc-missing):hover{ border-color: var(--brass-dim); }
+.pc-avatar-slot .avatar-wrap{ width: 44px; height: 44px; }
+.pc-info{ min-width:0; }
+.pc-name{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 14px; color: var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pc-meta{ font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-mute); margin-top: 2px; }
+.pc-missing{ color: var(--danger); font-size: 12.5px; font-family: 'JetBrains Mono', monospace; padding: 8px 12px; border: 1px dashed var(--danger); background:none; }
+
 /* ---------- Post detail modal ---------- */
-.modal-box.post-modal{ max-width: 640px; max-height: 88vh; overflow-y:auto; text-align:left; }
+.modal-box.post-modal{ max-width: 760px; max-height: 88vh; overflow-y:auto; text-align:left; }
 .modal-box.post-modal .modal-title{ text-align:left; margin: 0 0 6px; }
-.post-detail-thumb{ width:100%; max-height: 280px; object-fit:cover; border-radius:10px; margin-bottom: 14px; display:block; }
+.post-detail-thumb{ width:100%; max-height: 340px; object-fit:cover; border-radius:10px; margin-bottom: 14px; display:block; }
 .post-detail-video{ width:100%; aspect-ratio:16/9; border-radius:10px; margin-bottom:14px; border:none; }
 .post-detail-meta{ display:flex; align-items:center; gap: 10px; margin-bottom: 14px; flex-wrap:wrap; }
 .post-detail-author{ display:flex; align-items:center; gap: 8px; font-size: 12.5px; color: var(--text-mute); margin-left:auto; }
-.post-detail-body{ font-size: 14px; color: var(--text-dim); line-height: 1.7; white-space: pre-wrap; position:relative; }
+.post-detail-body{ position:relative; }
 .post-detail-body.blurred{ filter: blur(7px); user-select:none; pointer-events:none; max-height: 220px; overflow:hidden; }
 .paywall-note{
   display:none; text-align:center; padding: 20px; margin-top: -60px; position:relative; z-index: 2;
@@ -90,14 +120,77 @@
 .pd-btn.danger{ border-color: var(--danger); color: var(--danger); background:none; }
 
 /* ---------- Create/edit modal ---------- */
-.modal-box.editor-modal{ max-width: 620px; max-height: 88vh; overflow-y:auto; text-align:left; }
-.modal-box.editor-modal .modal-title{ text-align:left; }
-.editor-modal textarea{
-  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
-  padding: 10px 12px; color: var(--text); font-size: 13.5px; outline:none; resize: vertical; font-family: inherit;
+.modal-box.editor-modal{
+  width: min(94vw, 1500px); max-width: none; height: 88vh; max-height: 88vh;
+  display:flex; flex-direction:column; overflow: hidden; text-align:left; padding: 22px 26px 20px;
 }
-.subscriber-toggle{ display:flex; align-items:center; gap: 8px; margin: 4px 0 14px; font-size: 12.5px; color: var(--text-dim); }
-.subscriber-toggle input{ accent-color: var(--brass); width: 15px; height: 15px; }
+.modal-box.editor-modal .modal-title{ text-align:left; margin: 0 0 12px; flex: 0 0 auto; }
+
+.editor-meta-compact{ flex: 0 0 auto; margin-bottom: 10px; }
+.meta-title-field{ margin-bottom: 8px; }
+.meta-title-field input{
+  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; color: var(--text); font-family: 'Fraunces', serif; font-weight: 700; font-size: 17px;
+  outline:none; transition: border-color .12s ease;
+}
+.meta-title-field input:focus{ border-color: var(--brass); }
+
+.meta-grid{ display:grid; grid-template-columns: repeat(4, 1fr) auto; gap: 8px; align-items:end; }
+@media (max-width: 1100px){ .meta-grid{ grid-template-columns: repeat(2, 1fr); } }
+.meta-field label{
+  display:block; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-mute); margin-bottom: 4px;
+}
+.meta-field input, .meta-field select{
+  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 7px;
+  padding: 7px 9px; color: var(--text); font-size: 12.5px; outline:none; transition: border-color .12s ease;
+}
+.meta-field input:focus, .meta-field select:focus{ border-color: var(--brass); }
+.subscriber-toggle{ display:flex; align-items:center; gap: 6px; font-size: 11.5px; color: var(--text-dim); white-space:nowrap; padding-bottom: 7px; }
+.subscriber-toggle input{ accent-color: var(--brass); width: 14px; height: 14px; }
+
+.editor-toolbar{ flex: 0 0 auto; display:flex; align-items:center; gap: 4px; margin-bottom: 6px; position:relative; flex-wrap:wrap; }
+.tb-btn{
+  background: var(--panel-alt); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px;
+  font-family: 'JetBrains Mono', monospace; padding: 6px 10px; border-radius: 6px; cursor:pointer;
+}
+.tb-btn:hover{ border-color: var(--brass-dim); color: var(--text); }
+.tb-sep{ width: 1px; align-self: stretch; background: var(--border-soft); margin: 0 4px; }
+
+.player-insert-popover{
+  display:none; position:absolute; top: calc(100% + 4px); left: 0; z-index: 20; width: 260px;
+  background: var(--panel-hi); border: 1px solid var(--border); border-radius: 8px; padding: 8px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+}
+.player-insert-popover.open{ display:block; }
+.player-insert-popover input{
+  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 9px; color: var(--text); font-size: 12.5px; outline:none; margin-bottom: 6px;
+}
+.player-insert-results{ max-height: 220px; overflow-y:auto; }
+.player-insert-item{ display:flex; align-items:center; gap: 8px; padding: 6px 8px; border-radius: 6px; font-size: 12.5px; color: var(--text-dim); cursor:pointer; }
+.player-insert-item:hover{ background: var(--panel); color: var(--text); }
+.player-insert-empty{ font-size: 12px; color: var(--text-mute); padding: 6px 8px; }
+
+.editor-split{ flex: 1 1 auto; min-height: 0; display:flex; gap: 14px; }
+@media (max-width: 860px){ .editor-split{ flex-direction:column; } }
+.editor-body-input{
+  flex: 1 1 50%; min-width: 0; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; color: var(--text); font-size: 13px; line-height: 1.6; outline:none; resize: none;
+  font-family: 'JetBrains Mono', monospace;
+}
+.editor-body-input:focus{ border-color: var(--brass); }
+.editor-preview{
+  flex: 1 1 50%; min-width: 0; overflow-y: auto; background: var(--panel); border: 1px solid var(--border-soft);
+  border-radius: 8px; padding: 16px 18px;
+}
+.editor-preview .post-card-tag-row{ margin-bottom: 8px; }
+.editor-preview .post-detail-title{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 18px; color: var(--text); margin: 0 0 10px; }
+.editor-preview .post-detail-thumb{ max-height: 220px; margin-bottom: 10px; }
+
+.editor-footer{ flex: 0 0 auto; display:flex; align-items:center; gap: 12px; margin-top: 12px; }
+.editor-footer .field-error{ margin: 0; flex: 1 1 auto; }
+.editor-footer .modal-submit{ width:auto; margin-top:0; padding: 11px 24px; }
 </style>
 </head>
 <body>
@@ -137,7 +230,7 @@
     <img class="post-detail-thumb" id="detailThumb" style="display:none">
     <div id="detailVideoWrap"></div>
     <div id="detailBodyWrap">
-      <div class="post-detail-body" id="detailBody"></div>
+      <div class="post-detail-body md-content" id="detailBody"></div>
       <div class="paywall-note" id="paywallNote">
         <p>This post is for subscribers. <a href="subscriptions.html">See plans &rarr;</a></p>
       </div>
@@ -151,44 +244,84 @@
     <button class="modal-close" id="editorModalClose" aria-label="Close">&times;</button>
     <h2 class="modal-title" id="editorModalTitle">New Post</h2>
 
-    <div class="modal-field">
-      <label>Title</label>
-      <input type="text" id="fTitle">
+    <div class="editor-meta-compact">
+      <div class="meta-title-field">
+        <input type="text" id="fTitle" placeholder="Post title">
+      </div>
+      <div class="meta-grid">
+        <div class="meta-field">
+          <label>Category</label>
+          <select id="fCategory"></select>
+        </div>
+        <div class="meta-field">
+          <label>Thumbnail URL</label>
+          <input type="text" id="fThumb" placeholder="https://example.com/image.jpg">
+        </div>
+        <div class="meta-field">
+          <label>Video URL (YouTube)</label>
+          <input type="text" id="fVideo" placeholder="https://youtube.com/watch?v=...">
+        </div>
+        <div class="meta-field">
+          <label>Excerpt</label>
+          <input type="text" id="fExcerpt" maxlength="160" placeholder="Shown on the card">
+        </div>
+        <label class="subscriber-toggle">
+          <input type="checkbox" id="fSubscriberOnly">
+          Subscriber-only
+        </label>
+      </div>
     </div>
-    <div class="modal-field">
-      <label>Category</label>
-      <select id="fCategory"></select>
+
+    <div class="editor-toolbar" id="editorToolbar">
+      <button type="button" class="tb-btn" id="tbBold" title="Bold"><strong>B</strong></button>
+      <button type="button" class="tb-btn" id="tbItalic" title="Italic"><em>I</em></button>
+      <button type="button" class="tb-btn" id="tbHeading" title="Heading">H</button>
+      <div class="tb-sep"></div>
+      <button type="button" class="tb-btn" id="tbLink" title="Link">Link</button>
+      <button type="button" class="tb-btn" id="tbImage" title="Image / GIF">Image</button>
+      <button type="button" class="tb-btn" id="tbYoutube" title="Embed a YouTube video">YouTube</button>
+      <div class="tb-sep"></div>
+      <button type="button" class="tb-btn" id="tbList" title="Bulleted list">List</button>
+      <button type="button" class="tb-btn" id="tbQuote" title="Quote">Quote</button>
+      <div class="tb-sep"></div>
+      <button type="button" class="tb-btn" id="tbPlayer" title="Insert a player card">Player Card</button>
+      <div class="player-insert-popover" id="playerInsertPopover">
+        <input type="text" id="playerInsertInput" placeholder="Search a player&hellip;" autocomplete="off">
+        <div class="player-insert-results" id="playerInsertResults"></div>
+      </div>
     </div>
-    <div class="modal-field">
-      <label>Thumbnail URL</label>
-      <input type="text" id="fThumb" placeholder="https://example.com/image.jpg">
+
+    <div class="editor-split">
+      <textarea id="fBody" class="editor-body-input" placeholder="Write in Markdown&hellip; **bold**, *italic*, [links](https://...), ![alt](image-url), a bare YouTube link on its own line, or {{player:Player Name}} for a player card."></textarea>
+      <div class="editor-preview" id="editorPreview">
+        <div class="post-card-tag-row">
+          <span class="post-card-tag" id="previewTag"></span>
+        </div>
+        <h3 class="post-detail-title" id="previewTitle"></h3>
+        <div id="previewThumbWrap"></div>
+        <div id="previewVideoWrap"></div>
+        <div class="md-content" id="previewBody"></div>
+      </div>
     </div>
-    <div class="modal-field">
-      <label>Video URL (optional, YouTube)</label>
-      <input type="text" id="fVideo" placeholder="https://www.youtube.com/watch?v=...">
+
+    <div class="editor-footer">
+      <div class="field-error" id="editorError"></div>
+      <button class="modal-submit" id="editorSave">Save Draft</button>
     </div>
-    <div class="modal-field">
-      <label>Excerpt (shown on the card)</label>
-      <input type="text" id="fExcerpt" maxlength="160">
-    </div>
-    <div class="modal-field">
-      <label>Body</label>
-      <textarea id="fBody" rows="8"></textarea>
-    </div>
-    <label class="subscriber-toggle">
-      <input type="checkbox" id="fSubscriberOnly">
-      Subscriber-only post
-    </label>
-    <div class="field-error" id="editorError"></div>
-    <button class="modal-submit" id="editorSave">Save Draft</button>
   </div>
 </div>
 
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/marked@11/marked.min.js"></script>
+<script src="https://unpkg.com/dompurify@3/dist/purify.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/sidebar.js"></script>
+<script src="js/players-data.js"></script>
+<script src="js/player-render.js"></script>
+<script src="js/player-detail.js"></script>
+<script src="js/post-render.js"></script>
 <script>
 (function(){
   var CROWN_SVG = '<svg class="crown-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M5 18h14l1.4-8.5-4.9 3-3.5-6-3.5 6-4.9-3L5 18z"/></svg>';
@@ -232,7 +365,17 @@
     fBody: document.getElementById('fBody'),
     fSubscriberOnly: document.getElementById('fSubscriberOnly'),
     editorError: document.getElementById('editorError'),
-    editorSave: document.getElementById('editorSave')
+    editorSave: document.getElementById('editorSave'),
+
+    previewTag: document.getElementById('previewTag'),
+    previewTitle: document.getElementById('previewTitle'),
+    previewThumbWrap: document.getElementById('previewThumbWrap'),
+    previewVideoWrap: document.getElementById('previewVideoWrap'),
+    previewBody: document.getElementById('previewBody'),
+
+    playerPopover: document.getElementById('playerInsertPopover'),
+    playerInput: document.getElementById('playerInsertInput'),
+    playerResults: document.getElementById('playerInsertResults')
   };
 
   CATEGORIES.forEach(function(c){
@@ -375,8 +518,7 @@
 
   // ---------------- Detail modal ----------------
   function youtubeEmbedUrl(url){
-    var m = String(url || '').match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-    return m ? ('https://www.youtube.com/embed/' + m[1]) : null;
+    return window.PostRender ? window.PostRender.youtubeEmbedUrl(url) : null;
   }
 
   var detailTarget = null;
@@ -401,7 +543,8 @@
 
     var isAuthor = window.Auth && window.Auth.user && window.Auth.user.id === post.author_id;
     var blocked = post.subscriber_only && !isSubscriber() && !isAuthor && !canPublish();
-    els.detailBody.textContent = post.body;
+    els.detailBody.innerHTML = window.PostRender ? window.PostRender.render(post.body) : post.body;
+    if (window.PostRender) window.PostRender.hydrate(els.detailBody);
     els.detailBody.classList.toggle('blurred', blocked);
     els.paywallNote.classList.toggle('show', blocked);
 
@@ -454,6 +597,118 @@
   // ---------------- Create/edit modal ----------------
   var editorTarget = null;
 
+  function updatePreview(){
+    var cat = CAT_BY_KEY[els.fCategory.value] || CATEGORIES[0];
+    els.previewTag.textContent = cat.label;
+    els.previewTag.style.background = cat.color;
+    els.previewTitle.textContent = els.fTitle.value.trim() || 'Untitled post';
+
+    var thumbUrl = els.fThumb.value.trim();
+    els.previewThumbWrap.innerHTML = thumbUrl ? '<img class="post-detail-thumb" src="' + thumbUrl + '" alt="">' : '';
+
+    var embed = youtubeEmbedUrl(els.fVideo.value.trim());
+    els.previewVideoWrap.innerHTML = embed ? '<iframe class="post-detail-video" src="' + embed + '" allowfullscreen></iframe>' : '';
+
+    var bodyText = els.fBody.value.trim();
+    if (!bodyText){
+      els.previewBody.innerHTML = '<p class="preview-placeholder">Start writing to see a preview&hellip;</p>';
+      return;
+    }
+    els.previewBody.innerHTML = window.PostRender ? window.PostRender.render(els.fBody.value) : bodyText;
+    if (window.PostRender) window.PostRender.hydrate(els.previewBody);
+  }
+
+  ['input', 'change'].forEach(function(evt){
+    [els.fTitle, els.fCategory, els.fThumb, els.fVideo, els.fBody].forEach(function(el){
+      el.addEventListener(evt, updatePreview);
+    });
+  });
+
+  // ---- Toolbar: Markdown insertion helpers ----
+  function wrapSelection(before, after, placeholder){
+    var ta = els.fBody;
+    var start = ta.selectionStart, end = ta.selectionEnd;
+    var selected = ta.value.slice(start, end) || placeholder || '';
+    ta.value = ta.value.slice(0, start) + before + selected + after + ta.value.slice(end);
+    ta.focus();
+    ta.setSelectionRange(start + before.length, start + before.length + selected.length);
+    updatePreview();
+  }
+
+  function insertBlock(text){
+    var ta = els.fBody;
+    var start = ta.selectionStart, end = ta.selectionEnd;
+    var needsLeadingBreak = start > 0 && ta.value.charAt(start - 1) !== '\n';
+    var insert = (needsLeadingBreak ? '\n\n' : '') + text + '\n\n';
+    ta.value = ta.value.slice(0, start) + insert + ta.value.slice(end);
+    var pos = start + insert.length;
+    ta.focus();
+    ta.setSelectionRange(pos, pos);
+    updatePreview();
+  }
+
+  document.getElementById('tbBold').addEventListener('click', function(){ wrapSelection('**', '**', 'bold text'); });
+  document.getElementById('tbItalic').addEventListener('click', function(){ wrapSelection('*', '*', 'italic text'); });
+  document.getElementById('tbHeading').addEventListener('click', function(){ wrapSelection('## ', '', 'Heading'); });
+  document.getElementById('tbList').addEventListener('click', function(){ wrapSelection('- ', '', 'List item'); });
+  document.getElementById('tbQuote').addEventListener('click', function(){ wrapSelection('> ', '', 'Quoted text'); });
+
+  document.getElementById('tbLink').addEventListener('click', function(){
+    var url = window.prompt('Link URL:', 'https://');
+    if (!url) return;
+    wrapSelection('[', '](' + url + ')', 'link text');
+  });
+  document.getElementById('tbImage').addEventListener('click', function(){
+    var url = window.prompt('Image or GIF URL:', 'https://');
+    if (!url) return;
+    var alt = window.prompt('Alt text (optional):', '') || '';
+    insertBlock('![' + alt + '](' + url + ')');
+  });
+  document.getElementById('tbYoutube').addEventListener('click', function(){
+    var url = window.prompt('YouTube video URL:', 'https://www.youtube.com/watch?v=');
+    if (!url) return;
+    if (!youtubeEmbedUrl(url)){ alert("That doesn't look like a YouTube link."); return; }
+    insertBlock(url.trim());
+  });
+
+  // ---- Toolbar: player card popover ----
+  var playerPopoverOpen = false;
+  function closePlayerPopover(){ els.playerPopover.classList.remove('open'); playerPopoverOpen = false; }
+  function renderPlayerResults(query){
+    els.playerResults.innerHTML = '';
+    var players = window.__PLAYERS__ || [];
+    var q = query.trim().toLowerCase();
+    var matches = (q ? players.filter(function(p){ return p.name.toLowerCase().indexOf(q) !== -1; }) : players).slice(0, 8);
+    if (!matches.length){
+      els.playerResults.innerHTML = '<div class="player-insert-empty">No players found.</div>';
+      return;
+    }
+    matches.forEach(function(p){
+      var item = document.createElement('div');
+      item.className = 'player-insert-item';
+      item.textContent = p.name + ' · ' + p.team + ' · ' + (p.pos === 'DST' ? 'D/ST' : p.pos);
+      item.addEventListener('mousedown', function(e){
+        e.preventDefault();
+        insertBlock('{{player:' + p.name + '}}');
+        closePlayerPopover();
+      });
+      els.playerResults.appendChild(item);
+    });
+  }
+  document.getElementById('tbPlayer').addEventListener('click', function(e){
+    e.stopPropagation();
+    playerPopoverOpen = !playerPopoverOpen;
+    els.playerPopover.classList.toggle('open', playerPopoverOpen);
+    if (playerPopoverOpen){
+      els.playerInput.value = '';
+      renderPlayerResults('');
+      els.playerInput.focus();
+    }
+  });
+  els.playerInput.addEventListener('input', function(){ renderPlayerResults(els.playerInput.value); });
+  els.playerPopover.addEventListener('click', function(e){ e.stopPropagation(); });
+  document.addEventListener('click', function(){ if (playerPopoverOpen) closePlayerPopover(); });
+
   function openEditor(post){
     editorTarget = post;
     els.editorModalTitle.textContent = post ? 'Edit Post' : 'New Post';
@@ -466,6 +721,8 @@
     els.fSubscriberOnly.checked = post ? !!post.subscriber_only : false;
     els.editorError.textContent = '';
     els.editorSave.textContent = 'Save Draft';
+    closePlayerPopover();
+    updatePreview();
     els.editorModal.classList.add('open');
   }
   function closeEditor(){ els.editorModal.classList.remove('open'); editorTarget = null; }

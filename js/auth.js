@@ -295,24 +295,29 @@
   }
 
   function renderNotifPanel(panel) {
+    panel.innerHTML = '';
     if (!state.notifications.length) {
       panel.innerHTML = '<div class="notif-panel-empty">No notifications yet.</div>';
-      return;
-    }
-    panel.innerHTML = '';
-    state.notifications.forEach(function (n) {
-      var item = document.createElement('a');
-      item.className = 'notif-item' + (n.read ? '' : ' unread');
-      item.href = n.link || '#';
-      item.innerHTML =
-        '<div class="notif-item-title">' + n.title + '</div>' +
-        (n.body ? '<div class="notif-item-body">' + n.body + '</div>' : '') +
-        '<div class="notif-item-time">' + fmtNotifTime(n.created_at) + '</div>';
-      item.addEventListener('click', function () {
-        if (!n.read) window.Auth.markNotificationRead(n.id);
+    } else {
+      state.notifications.slice(0, 6).forEach(function (n) {
+        var item = document.createElement('a');
+        item.className = 'notif-item' + (n.read ? '' : ' unread');
+        item.href = n.link || '#';
+        item.innerHTML =
+          '<div class="notif-item-title">' + n.title + '</div>' +
+          (n.body ? '<div class="notif-item-body">' + n.body + '</div>' : '') +
+          '<div class="notif-item-time">' + fmtNotifTime(n.created_at) + '</div>';
+        item.addEventListener('click', function () {
+          if (!n.read) window.Auth.markNotificationRead(n.id);
+        });
+        panel.appendChild(item);
       });
-      panel.appendChild(item);
-    });
+    }
+    var viewAll = document.createElement('a');
+    viewAll.className = 'notif-panel-viewall';
+    viewAll.href = 'notifications.html';
+    viewAll.textContent = 'View all notifications';
+    panel.appendChild(viewAll);
   }
 
   function renderAuthBox() {
@@ -344,6 +349,7 @@
           '<div class="account-menu">' +
             (state.permissions.has('view_admin_panel') ? '<button class="menuAdmin">Admin Panel</button>' : '') +
             '<button class="menuEditProfile">Edit Profile</button>' +
+            '<button class="menuNotifications">Notifications' + (hasUnread ? ' <span class="menu-unread-dot"></span>' : '') + '</button>' +
             '<button class="menuProfile">Create/Edit Rankings</button>' +
             '<button class="menuLogout">Log Out</button>' +
           '</div>' +
@@ -358,6 +364,7 @@
       var adminBtn = box.querySelector('.menuAdmin');
       if (adminBtn) adminBtn.addEventListener('click', function () { window.location.href = 'admin.html'; });
       box.querySelector('.menuEditProfile').addEventListener('click', function () { window.location.href = 'profile.html'; });
+      box.querySelector('.menuNotifications').addEventListener('click', function () { window.location.href = 'notifications.html'; });
       box.querySelector('.menuProfile').addEventListener('click', function () { window.location.href = 'rankings-editor.html'; });
       box.querySelector('.menuLogout').addEventListener('click', function () { window.Auth.logout(); });
     });

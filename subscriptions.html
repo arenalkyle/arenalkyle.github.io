@@ -72,13 +72,17 @@
 <script src="js/sidebar.js"></script>
 <script>
 (function(){
+  // Display names are sports-fan themed; the underlying tier slugs
+  // (free/premium/elite/legendary) are unchanged -- they're baked into
+  // the DB check constraints and RLS in supabase/schema.sql, so only
+  // the label shown to users changes here.
   var PLANS = [
     {
-      tier: 'free', name: 'Free', price: '$0', per: '',
+      tier: 'free', name: 'Rookie', price: '$0', per: '',
       perks: ['Supports 3 leagues', '1 Start/Sit question per month']
     },
     {
-      tier: 'premium', name: 'Premium', price: '$7.50', per: '/mo',
+      tier: 'premium', name: 'Pro Bowl', price: '$7.50', per: '/mo',
       perks: [
         'Supports 10 leagues',
         '1x Start/Sit question per week (Free)',
@@ -88,7 +92,7 @@
       ]
     },
     {
-      tier: 'elite', name: 'Elite', price: '$15', per: '/mo', featured: true,
+      tier: 'elite', name: 'MVP', price: '$15', per: '/mo', featured: true,
       perks: [
         'Supports 15 leagues',
         '2x Start/Sit questions per week (Free)',
@@ -98,7 +102,7 @@
       ]
     },
     {
-      tier: 'legendary', name: 'Legendary', price: '$25', per: '/mo',
+      tier: 'legendary', name: 'Hall of Fame', price: '$25', per: '/mo',
       perks: [
         'Supports 25 leagues',
         '4x Start/Sit questions per week (Free)',

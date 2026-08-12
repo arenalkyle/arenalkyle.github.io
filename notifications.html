@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notifications &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 32px; max-width: 760px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.page-head{ display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; margin-bottom: 16px; }
+.page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
+.page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
+.mark-all-btn{
+  flex-shrink:0; background: var(--panel-alt); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px;
+  font-family: 'JetBrains Mono', monospace; padding: 8px 14px; border-radius: 8px; cursor:pointer; white-space:nowrap;
+}
+.mark-all-btn:hover{ border-color: var(--brass-dim); color: var(--text); }
+.mark-all-btn:disabled{ opacity:0.5; cursor:default; }
+
+.tabs-row{ display:flex; gap: 8px; margin-bottom: 16px; }
+.tab-btn{
+  background: var(--panel-alt); border: 1px solid var(--border); color: var(--text-dim); font-size: 12.5px;
+  font-family: 'JetBrains Mono', monospace; padding: 8px 16px; border-radius: 999px; cursor:pointer;
+}
+.tab-btn.active{ border-color: var(--brass); color: var(--brass-bright); background: rgba(201,161,90,0.1); }
+
+.nl-list{ display:flex; flex-direction:column; gap: 8px; }
+.nl-item{
+  display:flex; align-items:flex-start; gap: 12px; text-decoration:none; color: inherit;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+  transition: border-color .12s ease;
+}
+.nl-item:hover{ border-color: var(--brass-dim); }
+.nl-item.unread{ border-color: rgba(201,161,90,0.4); background: rgba(201,161,90,0.06); }
+.nl-dot{
+  flex-shrink:0; width: 9px; height: 9px; border-radius:50%; margin-top: 5px; background: var(--brass);
+  visibility:hidden;
+}
+.nl-item.unread .nl-dot{ visibility:visible; }
+.nl-body{ flex: 1 1 auto; min-width:0; }
+.nl-title{ font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.nl-text{ font-size: 13px; color: var(--text-mute); line-height: 1.5; white-space: pre-wrap; }
+.nl-time{ font-size: 10.5px; color: var(--text-mute); margin-top: 6px; font-family:'JetBrains Mono', monospace; }
+.nl-mark-btn{
+  flex-shrink:0; background:none; border: 1px solid var(--border); color: var(--text-mute); font-size: 10.5px;
+  font-family: 'JetBrains Mono', monospace; padding: 5px 10px; border-radius: 999px; cursor:pointer; margin-top: 2px;
+}
+.nl-mark-btn:hover{ border-color: var(--brass); color: var(--brass-bright); }
+
+.load-more-btn{
+  align-self:center; margin-top: 16px; background: var(--panel-alt); border: 1px solid var(--border); color: var(--text-dim);
+  font-size: 12px; font-family: 'JetBrains Mono', monospace; padding: 9px 20px; border-radius: 8px; cursor:pointer;
+}
+.load-more-btn:hover{ border-color: var(--brass-dim); color: var(--text); }
+.load-more-btn:disabled{ opacity:0.5; cursor:default; }
+
+.empty-state{ padding: 60px 20px; text-align:center; color: var(--text-mute); font-size: 13px; }
+.gate-block{ display:none; flex-direction: column; align-items:center; justify-content:center; gap: 12px; padding: 80px 20px; text-align:center; }
+.gate-block.show{ display:flex; }
+.gate-block p{ font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-mute); max-width: 360px; }
+#nlContent{ display:none; }
+#nlContent.show{ display:block; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+      <div class="page-head">
+        <div>
+          <h1>Notifications</h1>
+          <p>Everything The Board has sent you, in one place.</p>
+        </div>
+        <button class="mark-all-btn" id="markAllBtn">Mark all as read</button>
+      </div>
+
+      <div class="gate-block" id="gateBlock">
+        <p>Log in to see your notifications.</p>
+        <button class="login-btn" id="gateLoginBtn">Log In</button>
+      </div>
+
+      <div id="nlContent">
+        <div class="tabs-row" id="tabsRow">
+          <button class="tab-btn active" data-tab="all">All</button>
+          <button class="tab-btn" data-tab="unread">Unread</button>
+        </div>
+        <div class="nl-list" id="nlList"></div>
+        <button class="load-more-btn" id="loadMoreBtn" style="display:none">Load more</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+(function(){
+  var PAGE_SIZE = 25;
+
+  var els = {
+    gate: document.getElementById('gateBlock'),
+    gateLoginBtn: document.getElementById('gateLoginBtn'),
+    content: document.getElementById('nlContent'),
+    tabsRow: document.getElementById('tabsRow'),
+    list: document.getElementById('nlList'),
+    loadMoreBtn: document.getElementById('loadMoreBtn'),
+    markAllBtn: document.getElementById('markAllBtn')
+  };
+  els.gateLoginBtn.addEventListener('click', function(){ window.Auth.openLogin(); });
+
+  var activeTab = 'all';
+  var items = [];
+  var offset = 0;
+  var exhausted = false;
+  var loading = false;
+
+  function fmtTime(iso){
+    var d = new Date(iso);
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) + ' · ' +
+      d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function buildItem(n){
+    var a = document.createElement('a');
+    a.className = 'nl-item' + (n.read ? '' : ' unread');
+    a.href = n.link || '#';
+    if (!n.link) a.addEventListener('click', function(e){ e.preventDefault(); });
+
+    var dot = document.createElement('span');
+    dot.className = 'nl-dot';
+    a.appendChild(dot);
+
+    var body = document.createElement('div');
+    body.className = 'nl-body';
+    body.innerHTML =
+      '<div class="nl-title"></div>' +
+      (n.body ? '<div class="nl-text"></div>' : '') +
+      '<div class="nl-time">' + fmtTime(n.created_at) + '</div>';
+    body.querySelector('.nl-title').textContent = n.title;
+    if (n.body) body.querySelector('.nl-text').textContent = n.body;
+    a.appendChild(body);
+
+    if (!n.read){
+      var markBtn = document.createElement('button');
+      markBtn.className = 'nl-mark-btn';
+      markBtn.type = 'button';
+      markBtn.textContent = 'Mark read';
+      markBtn.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        markRead(n, a, dot, markBtn);
+      });
+      a.appendChild(markBtn);
+    }
+
+    a.addEventListener('click', function(){
+      if (!n.read) markRead(n, a, dot, null);
+    });
+
+    return a;
+  }
+
+  function markRead(n, itemEl, dotEl, btnEl){
+    n.read = true;
+    itemEl.classList.remove('unread');
+    if (btnEl) btnEl.remove();
+    window.sb.from('notifications').update({ read: true }).eq('id', n.id).then(function(){
+      if (window.Auth) window.Auth.refreshProfile();
+    });
+  }
+
+  function render(){
+    els.list.innerHTML = '';
+    var list = activeTab === 'unread' ? items.filter(function(n){ return !n.read; }) : items;
+    if (!list.length){
+      var empty = document.createElement('div');
+      empty.className = 'empty-state';
+      empty.textContent = activeTab === 'unread' ? 'No unread notifications.' : 'No notifications yet.';
+      els.list.appendChild(empty);
+    } else {
+      list.forEach(function(n){ els.list.appendChild(buildItem(n)); });
+    }
+    els.loadMoreBtn.style.display = (!exhausted && activeTab === 'all') ? '' : 'none';
+    var hasUnread = items.some(function(n){ return !n.read; });
+    els.markAllBtn.disabled = !hasUnread;
+  }
+
+  function loadPage(){
+    if (loading || exhausted || !window.Auth.user) return;
+    loading = true;
+    els.loadMoreBtn.disabled = true;
+    els.loadMoreBtn.textContent = 'Loading…';
+    window.sb.from('notifications').select('*').eq('user_id', window.Auth.user.id)
+      .order('created_at', { ascending: false }).range(offset, offset + PAGE_SIZE - 1)
+      .then(function(res){
+        loading = false;
+        els.loadMoreBtn.disabled = false;
+        els.loadMoreBtn.textContent = 'Load more';
+        var rows = res.data || [];
+        items = items.concat(rows);
+        offset += rows.length;
+        if (rows.length < PAGE_SIZE) exhausted = true;
+        render();
+      });
+  }
+
+  els.loadMoreBtn.addEventListener('click', loadPage);
+
+  els.markAllBtn.addEventListener('click', function(){
+    els.markAllBtn.disabled = true;
+    window.sb.from('notifications').update({ read: true }).eq('user_id', window.Auth.user.id).eq('read', false).then(function(){
+      items.forEach(function(n){ n.read = true; });
+      render();
+      if (window.Auth) window.Auth.refreshProfile();
+    });
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      activeTab = btn.getAttribute('data-tab');
+      document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      render();
+    });
+  });
+
+  function applyGate(){
+    var loggedIn = !!(window.Auth && window.Auth.user);
+    els.gate.classList.toggle('show', !loggedIn);
+    els.content.classList.toggle('show', loggedIn);
+    if (loggedIn && !items.length && !loading && !exhausted) loadPage();
+  }
+
+  window.addEventListener('auth:change', applyGate);
+  if (window.Auth){ window.Auth.ready.then(applyGate); }
+})();
+</script>
+</body>
+</html>
