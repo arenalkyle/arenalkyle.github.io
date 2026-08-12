@@ -127,10 +127,12 @@
         '<div class="pd-header">' +
           '<div class="pd-photo" id="pdPhoto"></div>' +
           '<div class="pd-bio">' +
-            '<h2 class="pd-name" id="pdName"></h2>' +
+            '<h2 class="pd-name"><span id="pdName"></span><span class="pd-tier-badge" id="pdTierBadge" style="display:none"></span></h2>' +
             '<div class="pd-meta" id="pdMeta"></div>' +
           '</div>' +
         '</div>' +
+        '<div class="pd-stat-cards" id="pdStatCards"></div>' +
+        '<label class="pd-section-label">Weekly Log</label>' +
         '<div class="pd-table-wrap" id="pdTableWrap"></div>' +
         '<div class="pd-notes-section">' +
           '<label class="pd-notes-label">Notes</label>' +
@@ -146,7 +148,9 @@
       close: document.getElementById('pdClose'),
       photo: document.getElementById('pdPhoto'),
       name: document.getElementById('pdName'),
+      tierBadge: document.getElementById('pdTierBadge'),
       meta: document.getElementById('pdMeta'),
+      statCards: document.getElementById('pdStatCards'),
       tableWrap: document.getElementById('pdTableWrap'),
       notesView: document.getElementById('pdNotesView'),
       notesEdit: document.getElementById('pdNotesEdit'),
@@ -215,13 +219,18 @@
       html += '<td class="pd-total">' + total.toFixed(1) + '</td>';
       html += '</tr>';
 
-      html += '<tr class="pd-matchup-row"><td class="pd-season-label">Matchup</td>';
-      for (var w2 = 1; w2 <= WEEKS; w2++) {
-        var opp = data.opponents[w2];
-        var rank = opp && ranks ? ranks[opp] : null;
-        html += '<td>' + (rank ? MATCHUP_ICON[rank] : '') + '</td>';
+      // Matchup difficulty is only meaningful for the current season --
+      // showing it for a season that's already fully played is just
+      // hindsight, not a decision-making signal.
+      if (s === SEASONS[0]) {
+        html += '<tr class="pd-matchup-row"><td class="pd-season-label">Matchup</td>';
+        for (var w2 = 1; w2 <= WEEKS; w2++) {
+          var opp = data.opponents[w2];
+          var rank = opp && ranks ? ranks[opp] : null;
+          html += '<td>' + (rank ? MATCHUP_ICON[rank] : '') + '</td>';
+        }
+        html += '<td></td><td></td></tr>';
       }
-      html += '<td></td><td></td></tr>';
     });
 
     html += '</tbody></table>';
@@ -231,7 +240,39 @@
   function renderMeta(player, age) {
     var parts = [player.pos === 'DST' ? 'D/ST' : player.pos, player.team];
     if (age) parts.push(age + ' yrs');
+    if (player.bye) parts.push('Bye ' + player.bye);
     els.meta.textContent = parts.filter(Boolean).join(' · ');
+  }
+
+  // Quick "scorecard" tiles built entirely from the already-loaded
+  // player object (window.__PLAYERS__) -- renders instantly on open(),
+  // before the live ESPN weekly table (which needs a fetch) is ready.
+  // Falls back gracefully: a stat with no real value (0/null, e.g. a
+  // rookie with no 2025 games) is simply left out instead of showing 0.
+  function renderStatCards(player) {
+    if (player.isTeamLogo) { els.statCards.innerHTML = ''; return; }
+    var posLabel = window.PlayerRender ? window.PlayerRender.posLabel(player.pos) : player.pos;
+    var fmtPoints = window.PlayerRender ? window.PlayerRender.fmtPoints : function (v) { return v == null ? '—' : String(v); };
+    var cards = [];
+    if (player.ppg25) cards.push({ label: 'PPG ’25', value: fmtPoints(player.ppg25) });
+    if (player.points25) cards.push({ label: 'Total ’25', value: fmtPoints(player.points25) });
+    if (player.posrank25) cards.push({ label: 'Pos Rank ’25', value: posLabel + player.posrank25 });
+    if (player.ovrank25) cards.push({ label: 'Ovr Rank ’25', value: '#' + player.ovrank25 });
+    if (player.ppg26) cards.push({ label: 'PPG ’26', value: fmtPoints(player.ppg26) });
+    if (!cards.length) { els.statCards.innerHTML = ''; return; }
+    els.statCards.innerHTML = cards.map(function (c) {
+      return '<div class="pd-stat-card"><div class="pd-stat-value">' + c.value + '</div><div class="pd-stat-label">' + c.label + '</div></div>';
+    }).join('');
+  }
+
+  function renderTierBadge(player) {
+    var rankSource = player.kyle || player.wesley;
+    var tier = (rankSource && window.PlayerRender) ? window.PlayerRender.tierFor(rankSource) : null;
+    if (!tier) { els.tierBadge.style.display = 'none'; return; }
+    els.tierBadge.style.background = tier.color;
+    els.tierBadge.textContent = tier.key;
+    els.tierBadge.title = 'Tier ' + tier.key;
+    els.tierBadge.style.display = '';
   }
 
   function loadStatsTable(player) {
@@ -257,7 +298,9 @@
     if (!els) injectMarkup();
     currentPlayer = player;
     els.name.textContent = player.name;
+    renderTierBadge(player);
     renderMeta(player, null);
+    renderStatCards(player);
 
     els.photo.innerHTML = '';
     if (window.PlayerRender) {

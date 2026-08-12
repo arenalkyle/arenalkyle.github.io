@@ -95,6 +95,9 @@ supabase/seed_kyle_wesley.sql  One-time seed script for migrating Kyle/Wesley's 
 SETUP.md                       Step-by-step first-time backend setup (Supabase project, edge functions,
                                 Google OAuth, Turnstile, bootstrapping the first Admin). Start here for
                                 "how do I stand this up from scratch."
+ROADMAP.md                     Scoped-but-not-built plans: wiring up real Stripe billing (subscriptions +
+                                Expert Reviews), selling to whole leagues at once, and notification-based
+                                retention features. Read before starting any monetization work.
 ```
 
 ## Shared JS modules — what they expose

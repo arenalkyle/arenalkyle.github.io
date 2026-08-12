@@ -266,8 +266,27 @@ button, input{ font-family: inherit; }
 .pd-header{ display:flex; align-items:center; gap: 16px; margin-bottom: 16px; }
 .pd-photo .avatar-wrap{ width: 84px; height: 84px; }
 .pd-photo .avatar-fallback{ font-size: 24px; }
-.pd-name{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 20px; color: var(--text); margin: 0 0 4px; }
+.pd-name{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 20px; color: var(--text); margin: 0 0 4px; display:inline-flex; align-items:center; gap: 9px; }
+.pd-tier-badge{
+  display:inline-flex; align-items:center; justify-content:center; width: 24px; height: 24px; border-radius: 7px;
+  font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12px; color: #17100e; flex-shrink:0;
+}
 .pd-meta{ font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-mute); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.pd-stat-cards{ display:grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin: 16px 0; }
+.pd-stat-card{
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px;
+  text-align:center;
+}
+.pd-stat-value{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 18px; color: var(--brass-bright); }
+.pd-stat-label{
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-mute); margin-top: 4px;
+}
+.pd-section-label{
+  display:block; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-mute); margin: 4px 0 8px;
+}
 
 .pd-table-wrap{ overflow-x: auto; margin-bottom: 18px; border: 1px solid var(--border); border-radius: 10px; }
 .pd-unavailable{ padding: 20px; text-align:center; color: var(--text-mute); font-size: 12.5px; margin:0; }
