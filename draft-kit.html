@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft Kit &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 32px; max-width: 1000px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.page-head{ margin-bottom: 14px; }
+.page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
+.page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
+
+.dk-controls{ display:flex; flex-wrap:wrap; gap: 10px; align-items:center; margin-bottom: 14px; }
+.dk-search{
+  flex: 1 1 220px; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 12px; color: var(--text); font-size: 13px; outline:none;
+}
+.dk-search:focus{ border-color: var(--brass); }
+.dk-select{
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 9px 10px;
+  color: var(--text); font-size: 12.5px; outline:none;
+}
+.dk-btn{
+  background: var(--panel-alt); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px;
+  font-family: 'JetBrains Mono', monospace; padding: 9px 14px; border-radius: 8px; cursor:pointer; white-space:nowrap;
+}
+.dk-btn:hover{ border-color: var(--brass-dim); color: var(--text); }
+.dk-btn.primary{ background: var(--brass); border-color: var(--brass); color: #241209; font-weight:700; }
+.dk-toggle{ display:flex; align-items:center; gap: 6px; font-size: 12px; color: var(--text-dim); white-space:nowrap; }
+.dk-toggle input{ accent-color: var(--brass); width: 14px; height: 14px; }
+
+.category-pills{ display:flex; flex-wrap:wrap; gap: 8px; margin-bottom: 16px; }
+.cat-pill{
+  border: 1px solid var(--border); background: var(--panel-alt); color: var(--text-dim); font-size: 11.5px;
+  font-family: 'JetBrains Mono', monospace; padding: 7px 13px; border-radius: 999px; cursor:pointer;
+  text-transform: uppercase; letter-spacing: 0.03em;
+}
+.cat-pill.active{ color: #17100e; font-weight: 700; border-color: transparent; background: var(--brass); }
+
+.dk-count{ font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-mute); margin-bottom: 10px; }
+
+.tier-group{ margin-bottom: 18px; }
+.tier-head{ display:flex; align-items:center; gap: 10px; margin-bottom: 8px; }
+.tier-head .swatch{ width: 22px; height: 22px; border-radius: 6px; display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono', monospace; font-weight:700; font-size: 12px; color:#17100e; flex-shrink:0; }
+.tier-head .label{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 14px; color: var(--text); }
+
+.dk-list{ display:flex; flex-direction:column; gap: 6px; }
+.dk-row{
+  display:flex; align-items:center; gap: 10px; background: var(--panel); border: 1px solid var(--border-soft);
+  border-radius: 8px; padding: 8px 12px; cursor:pointer; transition: opacity .12s ease, border-color .12s ease;
+}
+.dk-row:hover{ border-color: var(--brass-dim); }
+.dk-row.drafted{ opacity: 0.4; }
+.dk-row.drafted .dk-name{ text-decoration: line-through; }
+.dk-rank{ font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-mute); width: 30px; flex-shrink:0; }
+.dk-check{ width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.dk-row.drafted .dk-check{ background: var(--brass); border-color: var(--brass); color: #17100e; font-weight:700; font-size: 11px; }
+.dk-avatar{ flex-shrink:0; }
+.dk-avatar .avatar-wrap{ width: 30px; height: 30px; }
+.dk-name{ font-weight: 600; font-size: 13.5px; color: var(--text); flex: 1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dk-team{ color: var(--text-mute); font-weight: 400; }
+.dk-bye{ font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--text-mute); width: 46px; text-align:right; flex-shrink:0; }
+.dk-ppg{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-dim); width: 56px; text-align:right; flex-shrink:0; }
+
+.dk-list.hide-drafted .dk-row.drafted{ display:none; }
+
+@media print{
+  .sidebar, .topbar, .dk-controls, .category-pills, .dk-count, .page-head p{ display:none !important; }
+  body, .app-shell, .main-area{ background: #fff !important; }
+  .wrap{ max-width:none; padding: 0; overflow:visible; }
+  .dk-row{ background:#fff; border-color:#ccc; break-inside: avoid; }
+  .dk-name, .tier-head .label, .page-head h1{ color:#111 !important; }
+  .avatar-wrap{ display:none; }
+}
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+      <div class="page-head">
+        <h1>Draft Kit</h1>
+        <p>Your cheat sheet for draft day — sort it, filter it, check players off as they're picked.</p>
+      </div>
+
+      <div class="dk-controls">
+        <input type="text" class="dk-search" id="dkSearch" placeholder="Search a player&hellip;">
+        <select class="dk-select" id="dkSort">
+          <option value="kyle">Sort: Kyle's Ranks</option>
+          <option value="consensus">Sort: Consensus</option>
+          <option value="ppg25">Sort: PPG (2025)</option>
+          <option value="points25">Sort: Total Points (2025)</option>
+        </select>
+        <label class="dk-toggle"><input type="checkbox" id="dkHideDrafted"> Hide drafted</label>
+        <button class="dk-btn" id="dkReset">Reset Board</button>
+        <button class="dk-btn primary" id="dkPrint">Print</button>
+      </div>
+
+      <div class="category-pills" id="categoryPills"></div>
+      <div class="dk-count" id="dkCount"></div>
+
+      <div id="dkGroups"></div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/players-data.js"></script>
+<script src="js/player-render.js"></script>
+<script src="js/player-detail.js"></script>
+<script>
+(function(){
+  var STORAGE_KEY = 'ff_draft_kit_drafted_v1';
+  var POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
+
+  var els = {
+    search: document.getElementById('dkSearch'),
+    sort: document.getElementById('dkSort'),
+    hideDrafted: document.getElementById('dkHideDrafted'),
+    reset: document.getElementById('dkReset'),
+    print: document.getElementById('dkPrint'),
+    pills: document.getElementById('categoryPills'),
+    count: document.getElementById('dkCount'),
+    groups: document.getElementById('dkGroups')
+  };
+
+  var activePos = 'all';
+  var photoObserver = window.PlayerRender ? window.PlayerRender.createPhotoObserver() : null;
+
+  function loadDrafted(){
+    try { return new Set(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')); } catch (e) { return new Set(); }
+  }
+  function saveDrafted(set){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(set))); } catch (e) {}
+  }
+  var drafted = loadDrafted();
+
+  function consensusRank(p){
+    var vals = [p.kyle, p.wesley].filter(function(v){ return v != null; });
+    if (!vals.length) return Infinity;
+    return vals.reduce(function(a, b){ return a + b; }, 0) / vals.length;
+  }
+
+  function sortValue(p, mode){
+    if (mode === 'consensus') return consensusRank(p);
+    if (mode === 'ppg25') return -(p.ppg25 || 0);
+    if (mode === 'points25') return -(p.points25 || 0);
+    return p.kyle == null ? Infinity : p.kyle;
+  }
+
+  function renderPills(){
+    els.pills.innerHTML = '';
+    var all = document.createElement('button');
+    all.className = 'cat-pill' + (activePos === 'all' ? ' active' : '');
+    all.textContent = 'All';
+    all.addEventListener('click', function(){ activePos = 'all'; renderPills(); render(); });
+    els.pills.appendChild(all);
+    POSITIONS.forEach(function(pos){
+      var btn = document.createElement('button');
+      btn.className = 'cat-pill' + (activePos === pos ? ' active' : '');
+      btn.textContent = pos === 'DST' ? 'D/ST' : pos;
+      btn.addEventListener('click', function(){ activePos = pos; renderPills(); render(); });
+      els.pills.appendChild(btn);
+    });
+  }
+
+  function buildRow(p, rankIdx){
+    var key = window.playerKey(p);
+    var row = document.createElement('div');
+    row.className = 'dk-row' + (drafted.has(key) ? ' drafted' : '');
+
+    var rank = document.createElement('div');
+    rank.className = 'dk-rank';
+    rank.textContent = rankIdx;
+    row.appendChild(rank);
+
+    var check = document.createElement('div');
+    check.className = 'dk-check';
+    check.textContent = drafted.has(key) ? '✓' : '';
+    row.appendChild(check);
+
+    var avatar = document.createElement('div');
+    avatar.className = 'dk-avatar';
+    if (window.PlayerRender) avatar.appendChild(window.PlayerRender.buildAvatarWrap(p, photoObserver));
+    row.appendChild(avatar);
+
+    var name = document.createElement('div');
+    name.className = 'dk-name';
+    name.textContent = p.name + ' ';
+    var teamSpan = document.createElement('span');
+    teamSpan.className = 'dk-team';
+    teamSpan.textContent = '· ' + (p.pos === 'DST' ? 'D/ST' : p.pos) + ' ' + p.team;
+    name.appendChild(teamSpan);
+    name.addEventListener('click', function(e){ e.stopPropagation(); if (window.PlayerDetail) window.PlayerDetail.open(p); });
+    row.appendChild(name);
+
+    var bye = document.createElement('div');
+    bye.className = 'dk-bye';
+    bye.textContent = p.bye ? 'Bye ' + p.bye : '';
+    row.appendChild(bye);
+
+    var ppg = document.createElement('div');
+    ppg.className = 'dk-ppg';
+    ppg.textContent = p.ppg25 ? p.ppg25.toFixed(1) + ' ppg' : '';
+    row.appendChild(ppg);
+
+    row.addEventListener('click', function(){
+      if (drafted.has(key)) drafted.delete(key); else drafted.add(key);
+      saveDrafted(drafted);
+      render();
+    });
+
+    return row;
+  }
+
+  function render(){
+    var mode = els.sort.value;
+    var query = els.search.value.trim().toLowerCase();
+
+    var list = window.__PLAYERS__.filter(function(p){
+      if (activePos !== 'all' && p.pos !== activePos) return false;
+      if (query && p.name.toLowerCase().indexOf(query) === -1) return false;
+      return true;
+    }).slice().sort(function(a, b){ return sortValue(a, mode) - sortValue(b, mode); });
+
+    var available = list.filter(function(p){ return !drafted.has(window.playerKey(p)); }).length;
+    els.count.textContent = list.length + ' players shown · ' + available + ' available';
+
+    els.groups.innerHTML = '';
+    var listEl = document.createElement('div');
+    listEl.className = 'dk-list' + (els.hideDrafted.checked ? ' hide-drafted' : '');
+
+    if (mode === 'kyle' || mode === 'consensus'){
+      var tiers = window.PlayerRender ? window.PlayerRender.TIERS : null;
+      var byTier = {};
+      var order = [];
+      list.forEach(function(p, i){
+        var t = tiers ? window.PlayerRender.tierFor(sortValue(p, mode)) : null;
+        var key = t ? t.key : '—';
+        if (!byTier[key]){ byTier[key] = { tier: t, rows: [] }; order.push(key); }
+        byTier[key].rows.push({ p: p, idx: i + 1 });
+      });
+      order.forEach(function(key){
+        var group = byTier[key];
+        var groupEl = document.createElement('div');
+        groupEl.className = 'tier-group';
+        var head = document.createElement('div');
+        head.className = 'tier-head';
+        head.innerHTML =
+          '<span class="swatch" style="background:' + (group.tier ? group.tier.color : 'var(--panel-alt)') + '">' + key + '</span>' +
+          '<span class="label">Tier ' + key + '</span>';
+        groupEl.appendChild(head);
+        var groupList = document.createElement('div');
+        groupList.className = 'dk-list' + (els.hideDrafted.checked ? ' hide-drafted' : '');
+        group.rows.forEach(function(r){ groupList.appendChild(buildRow(r.p, r.idx)); });
+        groupEl.appendChild(groupList);
+        els.groups.appendChild(groupEl);
+      });
+    } else {
+      list.forEach(function(p, i){ listEl.appendChild(buildRow(p, i + 1)); });
+      els.groups.appendChild(listEl);
+    }
+  }
+
+  els.search.addEventListener('input', render);
+  els.sort.addEventListener('change', render);
+  els.hideDrafted.addEventListener('change', render);
+  els.print.addEventListener('click', function(){ window.print(); });
+  els.reset.addEventListener('click', function(){
+    if (!confirm('Clear every player marked as drafted?')) return;
+    drafted = new Set();
+    saveDrafted(drafted);
+    render();
+  });
+
+  renderPills();
+  render();
+})();
+</script>
+</body>
+</html>

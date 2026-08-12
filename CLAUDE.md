@@ -57,6 +57,14 @@ notifications.html           Full notifications inbox (see below).
 subscriptions.html           Plan picker (Rookie/Pro Bowl/MVP/Hall of Fame — see "Subscriptions" below).
 profile.html                 Edit your own profile (avatar URL, username, display name, favorite team).
 admin.html                   Admin-only: user list + role assignment, role→permission policy matrix.
+about.html                    Public-facing landing/marketing page (Kyle's bio, pulled live from `profiles`
+                               where username='kyle', plus CTAs into Rankings/Subscriptions/Expert Reviews).
+draft-kit.html                 Printable/checkable cheat sheet built from existing rankings data (tier-grouped,
+                               position-filterable, click-to-mark-drafted, persisted in localStorage).
+mock-draft.html                Mock draft lobby: create a room, browse/join public rooms, join by invite code.
+mock-draft-room.html           A single mock draft room: waiting room (slots, bot-fill, start), the live
+                               drafting board (realtime, timer, autopick), and final results. See "Mock
+                               Drafts" below.
 
 css/theme.css                 Every shared style: CSS custom properties (colors/fonts), app shell,
                                modal system, auth box + notification bell, player picker, player detail
@@ -243,6 +251,33 @@ The bell dropdown itself (`js/auth.js`) still shows a short recent
 list for quick access. Both read from the same `notifications` table;
 `window.Auth.refreshProfile()` is called after any mark-read so the
 bell's unread dot stays in sync across pages.
+
+## Mock Drafts
+
+Multiple concurrent draft rooms (`mock_draft_rooms`/`mock_draft_slots`/
+`mock_draft_picks` in `schema.sql`), each with real users and/or bots
+filling `team_count` slots, drafting in snake or linear order on a
+per-pick timer. Public rooms are listed in `mock-draft.html`'s lobby;
+private rooms are joinable only via their `invite_code`. All writes go
+through RPCs (`create_mock_draft_room`, `join_mock_draft_room`,
+`leave_mock_draft_room`, `set_mock_draft_slot_bot`, `start_mock_draft`,
+`mock_draft_make_pick`) — see the block comment above that schema
+section for the full design, and note this important asymmetry:
+**player data lives only in client-side `js/players-data.js`, not in
+Postgres**, so "who's the best player available" for an autopick is
+computed in the browser, not the database — the RPC only validates
+that an autopick was *legitimate* (bot's turn, or the deadline truly
+passed), never *which* player was chosen. `mock-draft-room.html`
+subscribes to all three tables via Supabase Realtime
+(`postgres_changes`, filtered by `room_id`) so every connected client
+sees picks/joins instantly.
+
+**This SQL has not been run against the live project yet** — it was
+appended to the end of `schema.sql` but re-running that whole file
+would error on every table that already exists. Whoever picks this up
+needs to copy just the new "Mock Drafts" section from `schema.sql`
+into the Supabase SQL editor and run it once, same as any other schema
+change described in SETUP.md.
 
 ## Not yet implemented (stubbed)
 

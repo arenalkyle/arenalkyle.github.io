@@ -10,17 +10,23 @@
     users: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
     swap: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3 21 7l-4 4"></path><path d="M21 7H9a4 4 0 0 0-4 4"></path><path d="M7 21 3 17l4-4"></path><path d="M3 17h12a4 4 0 0 0 4-4"></path></svg>',
     posts: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"></rect><line x1="7" y1="9" x2="17" y2="9"></line><line x1="7" y1="13" x2="13" y2="13"></line></svg>',
-    crown: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16l1.4-8.5-4.9 3-3.5-6-3.5 6-4.9-3L4 18z"></path></svg>'
+    crown: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16l1.4-8.5-4.9 3-3.5-6-3.5 6-4.9-3L4 18z"></path></svg>',
+    clipboard: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"></rect><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"></path><line x1="8" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="13" y2="15"></line></svg>',
+    mic: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
   };
 
   var LINKS = [
     { href: 'index.html', label: 'Rankings', icon: ICONS.board },
     { href: 'rankings-editor.html', label: 'Create/Edit Rankings', icon: ICONS.edit },
+    { href: 'draft-kit.html', label: 'Draft Kit', icon: ICONS.clipboard },
+    { href: 'mock-draft.html', label: 'Mock Draft', icon: ICONS.mic },
     { href: 'my-teams.html', label: 'My Teams', icon: ICONS.users },
     { href: 'trade-analyzer.html', label: 'Trade Analyzer', icon: ICONS.swap },
     { href: 'expert-reviews.html', label: 'Expert Reviews', icon: ICONS.star },
     { href: 'posts.html', label: 'Posts', icon: ICONS.posts },
-    { href: 'subscriptions.html', label: 'Subscriptions', icon: ICONS.crown }
+    { href: 'subscriptions.html', label: 'Subscriptions', icon: ICONS.crown },
+    { href: 'about.html', label: 'About', icon: ICONS.info }
   ];
 
   function currentPage() {

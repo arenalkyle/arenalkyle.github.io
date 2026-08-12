@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock Draft &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 32px; max-width: 1000px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.page-head{ margin-bottom: 18px; }
+.page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
+.page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
+
+.md-layout{ display:grid; grid-template-columns: 340px 1fr; gap: 20px; align-items:start; }
+@media (max-width: 800px){ .md-layout{ grid-template-columns: 1fr; } }
+
+.panel{ background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.panel h2{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 16px; color: var(--text); margin: 0 0 14px; }
+
+.md-row{ display:flex; gap: 10px; }
+.md-row .modal-field{ flex: 1 1 0; }
+
+.join-code-row{ display:flex; gap: 8px; margin-top: 4px; }
+.join-code-row input{
+  flex: 1 1 auto; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 11px; color: var(--text); font-size: 13px; outline:none;
+}
+
+.section-label{
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-mute); margin: 22px 0 10px;
+}
+.section-label:first-child{ margin-top: 0; }
+
+.room-list{ display:flex; flex-direction:column; gap: 8px; }
+.room-card{
+  display:flex; align-items:center; gap: 14px; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px;
+}
+.room-name{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 14.5px; color: var(--text); }
+.room-meta{ font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-mute); margin-top: 3px; }
+.room-status-pill{
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px; text-transform: uppercase; letter-spacing:.04em;
+  padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border-soft); color: var(--text-mute); flex-shrink:0;
+}
+.room-status-pill.waiting{ color: var(--brass-bright); border-color: var(--brass-dim); }
+.room-status-pill.in_progress{ color: #7a9e4e; border-color: #7a9e4e; }
+.room-status-pill.completed{ color: var(--text-mute); }
+.room-join-btn{
+  margin-left:auto; flex-shrink:0; background: var(--brass); border: 1px solid var(--brass); color: #241209;
+  font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 8px 16px; border-radius: 8px; cursor:pointer;
+}
+.room-join-btn:hover{ filter: brightness(1.08); }
+.room-join-btn:disabled{ opacity: 0.5; cursor:default; }
+.room-join-btn.secondary{ background: var(--panel-alt); border-color: var(--border); color: var(--text-dim); font-weight:500; }
+
+.empty-state{ padding: 30px 20px; text-align:center; color: var(--text-mute); font-size: 13px; }
+.md-status{ font-size: 12.5px; color: var(--text-mute); margin-top: 12px; min-height:16px; }
+.md-status.error{ color: var(--danger); }
+.gate-note{ font-size: 12.5px; color: var(--text-mute); text-align:center; padding: 12px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+      <div class="page-head">
+        <h1>Mock Draft</h1>
+        <p>Practice draft day against real people, bots, or both — as many rooms as people want to run at once.</p>
+      </div>
+
+      <div class="md-layout">
+        <div>
+          <div class="panel" id="createPanel">
+            <h2>Start a Room</h2>
+            <div id="createGate" class="gate-note" style="display:none">Log in to host a mock draft.</div>
+            <div id="createForm">
+              <div class="modal-field">
+                <label>Room Name</label>
+                <input type="text" id="fName" placeholder="e.g. Friday Night Mock">
+              </div>
+              <div class="md-row">
+                <div class="modal-field">
+                  <label>Teams</label>
+                  <select id="fTeamCount"></select>
+                </div>
+                <div class="modal-field">
+                  <label>Rounds</label>
+                  <select id="fRounds"></select>
+                </div>
+              </div>
+              <div class="md-row">
+                <div class="modal-field">
+                  <label>Pick Timer</label>
+                  <select id="fPickSeconds">
+                    <option value="30">30 sec</option>
+                    <option value="45">45 sec</option>
+                    <option value="60" selected>60 sec</option>
+                    <option value="90">90 sec</option>
+                    <option value="120">2 min</option>
+                  </select>
+                </div>
+                <div class="modal-field">
+                  <label>Draft Type</label>
+                  <select id="fDraftType">
+                    <option value="snake" selected>Snake</option>
+                    <option value="linear">Linear</option>
+                  </select>
+                </div>
+              </div>
+              <label class="subscriber-toggle" style="margin-bottom:14px">
+                <input type="checkbox" id="fIsPublic">
+                List in the public lobby
+              </label>
+              <button class="modal-submit" id="createBtn">Create Room</button>
+              <div class="md-status" id="createStatus"></div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:16px">
+            <h2>Join by Code</h2>
+            <div class="join-code-row">
+              <input type="text" id="joinCodeInput" placeholder="Invite code">
+              <button class="room-join-btn" id="joinCodeBtn">Join</button>
+            </div>
+            <div class="md-status" id="joinStatus"></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label" id="myRoomsLabel" style="display:none">Your Rooms</div>
+          <div class="room-list" id="myRoomsList"></div>
+
+          <div class="section-label">Public Rooms</div>
+          <div class="room-list" id="publicRoomsList"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script>
+(function(){
+  var els = {
+    createGate: document.getElementById('createGate'),
+    createForm: document.getElementById('createForm'),
+    fName: document.getElementById('fName'),
+    fTeamCount: document.getElementById('fTeamCount'),
+    fRounds: document.getElementById('fRounds'),
+    fPickSeconds: document.getElementById('fPickSeconds'),
+    fDraftType: document.getElementById('fDraftType'),
+    fIsPublic: document.getElementById('fIsPublic'),
+    createBtn: document.getElementById('createBtn'),
+    createStatus: document.getElementById('createStatus'),
+    joinCodeInput: document.getElementById('joinCodeInput'),
+    joinCodeBtn: document.getElementById('joinCodeBtn'),
+    joinStatus: document.getElementById('joinStatus'),
+    myRoomsLabel: document.getElementById('myRoomsLabel'),
+    myRoomsList: document.getElementById('myRoomsList'),
+    publicRoomsList: document.getElementById('publicRoomsList')
+  };
+
+  for (var t = 4; t <= 14; t++){
+    var opt = document.createElement('option');
+    opt.value = t; opt.textContent = t + ' teams';
+    if (t === 10) opt.selected = true;
+    els.fTeamCount.appendChild(opt);
+  }
+  [10, 12, 15, 16, 18].forEach(function(r){
+    var opt = document.createElement('option');
+    opt.value = r; opt.textContent = r + ' rounds';
+    if (r === 15) opt.selected = true;
+    els.fRounds.appendChild(opt);
+  });
+
+  function fmtStatus(s){ return s === 'in_progress' ? 'Live' : (s === 'completed' ? 'Finished' : 'Open'); }
+
+  function roomCard(room, slotCounts, isMine){
+    var card = document.createElement('div');
+    card.className = 'room-card';
+    var counts = slotCounts[room.id] || { filled: 0, total: room.team_count };
+    card.innerHTML =
+      '<div>' +
+        '<div class="room-name">' + room.name + '</div>' +
+        '<div class="room-meta">' + room.team_count + '-team · ' + room.rounds + ' rd · ' + room.draft_type +
+          ' · ' + counts.filled + '/' + counts.total + ' filled</div>' +
+      '</div>' +
+      '<span class="room-status-pill ' + room.status + '">' + fmtStatus(room.status) + '</span>';
+
+    var btn = document.createElement('button');
+    btn.className = 'room-join-btn' + (isMine ? ' secondary' : '');
+    if (room.status === 'completed'){
+      btn.textContent = 'View Results';
+      btn.addEventListener('click', function(){ window.location.href = 'mock-draft-room.html?room=' + room.id; });
+    } else if (isMine || room.status === 'in_progress'){
+      btn.textContent = room.status === 'in_progress' ? 'Watch/Play' : 'Open Room';
+      btn.addEventListener('click', function(){ window.location.href = 'mock-draft-room.html?room=' + room.id; });
+    } else {
+      btn.textContent = counts.filled >= counts.total ? 'Full' : 'Join';
+      btn.disabled = counts.filled >= counts.total;
+      btn.addEventListener('click', function(){ joinRoom(room.id, room.invite_code); });
+    }
+    card.appendChild(btn);
+    return card;
+  }
+
+  function loadSlotCounts(roomIds){
+    if (!roomIds.length) return Promise.resolve({});
+    return window.sb.from('mock_draft_slots').select('room_id,user_id,is_bot').in('room_id', roomIds).then(function(res){
+      var counts = {};
+      (res.data || []).forEach(function(s){
+        if (!counts[s.room_id]) counts[s.room_id] = { filled: 0, total: 0 };
+        counts[s.room_id].total++;
+        if (s.user_id || s.is_bot) counts[s.room_id].filled++;
+      });
+      return counts;
+    });
+  }
+
+  function loadRooms(){
+    var uid = window.Auth && window.Auth.user ? window.Auth.user.id : null;
+
+    var publicQuery = window.sb.from('mock_draft_rooms').select('*').eq('is_public', true)
+      .neq('status', 'completed').order('created_at', { ascending: false }).limit(20);
+
+    var minePromise = uid
+      ? window.sb.from('mock_draft_slots').select('room_id').eq('user_id', uid).then(function(res){
+          var ids = Array.from(new Set((res.data || []).map(function(r){ return r.room_id; })));
+          if (!ids.length) return [];
+          return window.sb.from('mock_draft_rooms').select('*').in('id', ids).order('created_at', { ascending: false }).then(function(r){ return r.data || []; });
+        })
+      : Promise.resolve([]);
+
+    Promise.all([publicQuery, minePromise]).then(function(results){
+      var publicRooms = results[0].data || [];
+      var myRooms = results[1] || [];
+      var allIds = Array.from(new Set(publicRooms.concat(myRooms).map(function(r){ return r.id; })));
+
+      loadSlotCounts(allIds).then(function(counts){
+        els.publicRoomsList.innerHTML = '';
+        var joinablePublic = publicRooms.filter(function(r){ return !myRooms.some(function(m){ return m.id === r.id; }); });
+        if (!joinablePublic.length){
+          var empty = document.createElement('div');
+          empty.className = 'empty-state';
+          empty.textContent = 'No public rooms open right now — start one!';
+          els.publicRoomsList.appendChild(empty);
+        } else {
+          joinablePublic.forEach(function(r){ els.publicRoomsList.appendChild(roomCard(r, counts, false)); });
+        }
+
+        els.myRoomsList.innerHTML = '';
+        if (myRooms.length){
+          els.myRoomsLabel.style.display = '';
+          myRooms.forEach(function(r){ els.myRoomsList.appendChild(roomCard(r, counts, true)); });
+        } else {
+          els.myRoomsLabel.style.display = 'none';
+        }
+      });
+    });
+  }
+
+  function joinRoom(roomId, inviteCode){
+    if (!window.Auth || !window.Auth.user){ window.Auth.openLogin(); return; }
+    window.sb.rpc('join_mock_draft_room', { p_room_id: roomId, p_invite_code: inviteCode }).then(function(res){
+      if (res.error){ els.joinStatus.textContent = res.error.message; els.joinStatus.classList.add('error'); return; }
+      window.location.href = 'mock-draft-room.html?room=' + roomId;
+    });
+  }
+
+  els.createBtn.addEventListener('click', function(){
+    if (!window.Auth || !window.Auth.user){ window.Auth.openLogin(); return; }
+    els.createStatus.textContent = '';
+    els.createStatus.classList.remove('error');
+    els.createBtn.disabled = true;
+    els.createBtn.textContent = 'Creating…';
+    window.sb.rpc('create_mock_draft_room', {
+      p_name: els.fName.value.trim(),
+      p_team_count: parseInt(els.fTeamCount.value, 10),
+      p_rounds: parseInt(els.fRounds.value, 10),
+      p_pick_seconds: parseInt(els.fPickSeconds.value, 10),
+      p_draft_type: els.fDraftType.value,
+      p_is_public: els.fIsPublic.checked
+    }).then(function(res){
+      els.createBtn.disabled = false;
+      els.createBtn.textContent = 'Create Room';
+      if (res.error){ els.createStatus.textContent = res.error.message; els.createStatus.classList.add('error'); return; }
+      window.location.href = 'mock-draft-room.html?room=' + res.data;
+    });
+  });
+
+  els.joinCodeBtn.addEventListener('click', function(){
+    if (!window.Auth || !window.Auth.user){ window.Auth.openLogin(); return; }
+    var code = els.joinCodeInput.value.trim();
+    if (!code){ return; }
+    els.joinStatus.textContent = '';
+    els.joinStatus.classList.remove('error');
+    window.sb.from('mock_draft_rooms').select('id,invite_code').eq('invite_code', code).maybeSingle().then(function(res){
+      if (!res.data){ els.joinStatus.textContent = "No room found with that code."; els.joinStatus.classList.add('error'); return; }
+      joinRoom(res.data.id, res.data.invite_code);
+    });
+  });
+
+  function applyGate(){
+    var loggedIn = !!(window.Auth && window.Auth.user);
+    els.createGate.style.display = loggedIn ? 'none' : '';
+    els.createForm.style.display = loggedIn ? '' : 'none';
+    loadRooms();
+  }
+
+  var channel = window.sb.channel('mock-draft-lobby')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'mock_draft_rooms' }, loadRooms)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'mock_draft_slots' }, loadRooms)
+    .subscribe();
+  window.addEventListener('beforeunload', function(){ window.sb.removeChannel(channel); });
+
+  window.addEventListener('auth:change', applyGate);
+  if (window.Auth){ window.Auth.ready.then(applyGate); } else { loadRooms(); }
+})();
+</script>
+</body>
+</html>

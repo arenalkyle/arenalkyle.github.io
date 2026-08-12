@@ -901,3 +901,343 @@ insert into public.role_permissions (role, permission_key, allowed) values
   ('admin',  'publish_posts',              true),
   ('admin',  'delete_posts',               true),
   ('admin',  'edit_player_notes',          true);
+
+-- ============================================================
+-- Mock Drafts (mock-draft.html / mock-draft-room.html)
+--
+-- Multiple rooms run concurrently, each with a fixed number of
+-- draft slots (team_count), filled by real users and/or bots,
+-- picking in snake or linear order on a per-pick timer. A room is
+-- either public (listed in the lobby, joinable by anyone) or
+-- private (joinable only by whoever has its invite_code/link).
+--
+-- Player data (window.__PLAYERS__ / js/players-data.js) lives only
+-- in static client JS, not in Postgres -- there is no `players`
+-- table. That means "who's the best player available" can only be
+-- computed client-side, so autopick works differently from a normal
+-- security-definer RPC: the client (whichever browser notices a
+-- deadline has passed, or that a bot is on the clock) computes the
+-- best available player itself and calls mock_draft_make_pick() with
+-- is_autopick=true; the RPC re-validates server-side that autopick
+-- was actually legitimate (bot's turn, or the deadline truly passed)
+-- before accepting it -- the client chooses *which* player, the
+-- server is still the one deciding *whether* that pick is allowed.
+-- Concurrent clients racing to autopick the same slot is expected
+-- and harmless: mock_draft_make_pick() locks the room row (`for
+-- update`) for its duration, so only the first caller's pick applies
+-- and every other racing call fails on "not your turn" / "already
+-- drafted" -- the client-side caller of autopick is expected to
+-- swallow that failure silently rather than surface it as an error.
+--
+-- Access model is intentionally loose (like analyzed_trades):
+-- anyone can SELECT any room/slot/pick row if they know its id
+-- (practically gated by invite_code + not being listed for private
+-- rooms), since this is a low-stakes feature with nothing sensitive
+-- in it. All writes go through the RPCs below.
+-- ============================================================
+create table public.mock_draft_rooms (
+  id            uuid primary key default gen_random_uuid(),
+  host_id       uuid not null references auth.users(id) on delete cascade,
+  name          text not null,
+  team_count    integer not null check (team_count between 4 and 14),
+  rounds        integer not null check (rounds between 1 and 20),
+  pick_seconds  integer not null default 60 check (pick_seconds between 15 and 300),
+  draft_type    text not null default 'snake' check (draft_type in ('snake','linear')),
+  is_public     boolean not null default false,
+  invite_code   text not null unique default substr(md5(random()::text), 1, 8),
+  status        text not null default 'waiting' check (status in ('waiting','in_progress','completed')),
+  current_pick  integer not null default 1,
+  pick_deadline timestamptz,
+  started_at    timestamptz,
+  completed_at  timestamptz,
+  created_at    timestamptz not null default now()
+);
+
+create index mock_draft_rooms_public_idx on public.mock_draft_rooms (is_public, status, created_at desc);
+alter table public.mock_draft_rooms enable row level security;
+create policy mock_draft_rooms_select_all on public.mock_draft_rooms for select using (true);
+grant select on public.mock_draft_rooms to anon, authenticated;
+
+create table public.mock_draft_slots (
+  room_id     uuid not null references public.mock_draft_rooms(id) on delete cascade,
+  slot_index  integer not null,
+  user_id     uuid references auth.users(id) on delete set null,
+  team_label  text not null,
+  is_bot      boolean not null default false,
+  joined_at   timestamptz not null default now(),
+  primary key (room_id, slot_index)
+);
+alter table public.mock_draft_slots enable row level security;
+create policy mock_draft_slots_select_all on public.mock_draft_slots for select using (true);
+grant select on public.mock_draft_slots to anon, authenticated;
+
+create table public.mock_draft_picks (
+  room_id     uuid not null references public.mock_draft_rooms(id) on delete cascade,
+  pick_number integer not null,
+  round       integer not null,
+  slot_index  integer not null,
+  player_key  text not null,
+  player_name text not null,
+  picked_at   timestamptz not null default now(),
+  primary key (room_id, pick_number)
+);
+alter table public.mock_draft_picks enable row level security;
+create policy mock_draft_picks_select_all on public.mock_draft_picks for select using (true);
+grant select on public.mock_draft_picks to anon, authenticated;
+
+-- Pure function: given a room's team_count/draft_type, which round
+-- and slot is on the clock for a given overall pick number. Shared by
+-- mock_draft_make_pick() (this pick) and start/advance (the next
+-- pick's deadline needs to know if the next slot is a bot).
+create or replace function public.mock_draft_slot_for_pick(p_team_count integer, p_draft_type text, p_pick_number integer)
+returns table(round integer, slot_index integer)
+language sql immutable
+as $$
+  select
+    ((p_pick_number - 1) / p_team_count) + 1 as round,
+    case
+      when p_draft_type = 'snake' and (((p_pick_number - 1) / p_team_count) + 1) % 2 = 0
+        then p_team_count - (((p_pick_number - 1) % p_team_count) + 1) + 1
+      else ((p_pick_number - 1) % p_team_count) + 1
+    end as slot_index;
+$$;
+
+create or replace function public.create_mock_draft_room(
+  p_name text,
+  p_team_count integer,
+  p_rounds integer,
+  p_pick_seconds integer,
+  p_draft_type text,
+  p_is_public boolean
+)
+returns uuid
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  new_room_id uuid;
+  host_label text;
+  i integer;
+begin
+  if uid is null then
+    raise exception 'not authenticated';
+  end if;
+  if p_team_count is null or p_team_count < 4 or p_team_count > 14 then
+    raise exception 'team_count must be between 4 and 14';
+  end if;
+  if p_rounds is null or p_rounds < 1 or p_rounds > 20 then
+    raise exception 'rounds must be between 1 and 20';
+  end if;
+  if p_draft_type not in ('snake', 'linear') then
+    raise exception 'invalid draft_type: %', p_draft_type;
+  end if;
+
+  select coalesce(display_name, username) into host_label from public.profiles where id = uid;
+
+  insert into public.mock_draft_rooms (host_id, name, team_count, rounds, pick_seconds, draft_type, is_public)
+  values (uid, coalesce(nullif(trim(p_name), ''), host_label || '''s Mock Draft'), p_team_count, p_rounds,
+          greatest(15, least(300, coalesce(p_pick_seconds, 60))), p_draft_type, coalesce(p_is_public, false))
+  returning id into new_room_id;
+
+  for i in 1..p_team_count loop
+    insert into public.mock_draft_slots (room_id, slot_index, team_label)
+    values (new_room_id, i, 'Team ' || i);
+  end loop;
+
+  -- host automatically takes slot 1
+  update public.mock_draft_slots set user_id = uid, team_label = coalesce(host_label, 'Team 1')
+  where room_id = new_room_id and slot_index = 1;
+
+  return new_room_id;
+end;
+$$;
+
+grant execute on function public.create_mock_draft_room(text, integer, integer, integer, text, boolean) to authenticated;
+
+create or replace function public.join_mock_draft_room(p_room_id uuid, p_invite_code text, p_slot_index integer default null)
+returns integer
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  room record;
+  target_slot integer;
+  user_label text;
+begin
+  if uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  select * into room from public.mock_draft_rooms where id = p_room_id for update;
+  if not found then
+    raise exception 'room not found';
+  end if;
+  if room.invite_code is distinct from p_invite_code then
+    raise exception 'invalid invite code';
+  end if;
+  if room.status <> 'waiting' then
+    raise exception 'this draft has already started';
+  end if;
+
+  if exists (select 1 from public.mock_draft_slots where room_id = p_room_id and user_id = uid) then
+    raise exception 'you are already in this room';
+  end if;
+
+  if p_slot_index is not null then
+    if not exists (select 1 from public.mock_draft_slots where room_id = p_room_id and slot_index = p_slot_index and user_id is null and is_bot = false) then
+      raise exception 'that slot is not open';
+    end if;
+    target_slot := p_slot_index;
+  else
+    select slot_index into target_slot from public.mock_draft_slots
+      where room_id = p_room_id and user_id is null and is_bot = false
+      order by slot_index limit 1;
+    if target_slot is null then
+      raise exception 'this room is full';
+    end if;
+  end if;
+
+  select coalesce(display_name, username) into user_label from public.profiles where id = uid;
+
+  update public.mock_draft_slots set user_id = uid, is_bot = false, team_label = coalesce(user_label, 'Team ' || target_slot)
+  where room_id = p_room_id and slot_index = target_slot;
+
+  return target_slot;
+end;
+$$;
+
+grant execute on function public.join_mock_draft_room(uuid, text, integer) to authenticated;
+
+create or replace function public.leave_mock_draft_room(p_room_id uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  update public.mock_draft_slots set user_id = null, team_label = 'Team ' || slot_index
+  where room_id = p_room_id and user_id = uid
+    and exists (select 1 from public.mock_draft_rooms r where r.id = p_room_id and r.status = 'waiting');
+end;
+$$;
+
+grant execute on function public.leave_mock_draft_room(uuid) to authenticated;
+
+create or replace function public.set_mock_draft_slot_bot(p_room_id uuid, p_slot_index integer, p_is_bot boolean)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  if not exists (select 1 from public.mock_draft_rooms where id = p_room_id and host_id = uid and status = 'waiting') then
+    raise exception 'only the host can do that, and only before the draft starts';
+  end if;
+  update public.mock_draft_slots
+     set is_bot = p_is_bot,
+         user_id = case when p_is_bot then null else user_id end,
+         team_label = case when p_is_bot then 'Bot ' || slot_index else team_label end
+   where room_id = p_room_id and slot_index = p_slot_index;
+end;
+$$;
+
+grant execute on function public.set_mock_draft_slot_bot(uuid, integer, boolean) to authenticated;
+
+create or replace function public.start_mock_draft(p_room_id uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  room record;
+  first_slot record;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+
+  select * into room from public.mock_draft_rooms where id = p_room_id for update;
+  if not found then raise exception 'room not found'; end if;
+  if room.host_id <> uid then raise exception 'only the host can start the draft'; end if;
+  if room.status <> 'waiting' then raise exception 'this draft has already started'; end if;
+
+  -- auto-fill any still-empty seats as bots so the host never has to wait on stragglers
+  update public.mock_draft_slots
+     set is_bot = true, team_label = 'Bot ' || slot_index
+   where room_id = p_room_id and user_id is null and is_bot = false;
+
+  select * into first_slot from public.mock_draft_slots where room_id = p_room_id and slot_index = 1;
+
+  update public.mock_draft_rooms
+     set status = 'in_progress', started_at = now(), current_pick = 1,
+         pick_deadline = now() + (case when first_slot.is_bot then interval '4 seconds' else make_interval(secs => room.pick_seconds) end)
+   where id = p_room_id;
+end;
+$$;
+
+grant execute on function public.start_mock_draft(uuid) to authenticated;
+
+-- The only way a pick is ever written. Handles both a human picking
+-- on their own turn and an autopick (bot's turn, or a human's
+-- deadline expired) -- see the block comment above this section for
+-- why the *choice* of player has to come from the client.
+create or replace function public.mock_draft_make_pick(
+  p_room_id uuid,
+  p_player_key text,
+  p_player_name text,
+  p_is_autopick boolean default false
+)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  room record;
+  slot_info record;
+  on_clock record;
+  next_pick integer;
+  next_slot_info record;
+  next_on_clock record;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+
+  select * into room from public.mock_draft_rooms where id = p_room_id for update;
+  if not found then raise exception 'room not found'; end if;
+  if room.status <> 'in_progress' then raise exception 'this draft is not in progress'; end if;
+
+  select * into slot_info from public.mock_draft_slot_for_pick(room.team_count, room.draft_type, room.current_pick);
+  select * into on_clock from public.mock_draft_slots where room_id = p_room_id and slot_index = slot_info.slot_index;
+
+  if p_is_autopick then
+    if not (on_clock.is_bot or now() >= room.pick_deadline) then
+      raise exception 'autopick is not available yet';
+    end if;
+  else
+    if on_clock.is_bot or on_clock.user_id is distinct from uid then
+      raise exception 'it is not your turn';
+    end if;
+  end if;
+
+  if exists (select 1 from public.mock_draft_picks where room_id = p_room_id and player_key = p_player_key) then
+    raise exception 'that player has already been drafted';
+  end if;
+
+  insert into public.mock_draft_picks (room_id, pick_number, round, slot_index, player_key, player_name)
+  values (p_room_id, room.current_pick, slot_info.round, slot_info.slot_index, p_player_key, p_player_name);
+
+  next_pick := room.current_pick + 1;
+
+  if next_pick > room.team_count * room.rounds then
+    update public.mock_draft_rooms set status = 'completed', completed_at = now(), current_pick = next_pick where id = p_room_id;
+  else
+    select * into next_slot_info from public.mock_draft_slot_for_pick(room.team_count, room.draft_type, next_pick);
+    select * into next_on_clock from public.mock_draft_slots where room_id = p_room_id and slot_index = next_slot_info.slot_index;
+    update public.mock_draft_rooms
+       set current_pick = next_pick,
+           pick_deadline = now() + (case when next_on_clock.is_bot then interval '4 seconds' else make_interval(secs => room.pick_seconds) end)
+     where id = p_room_id;
+  end if;
+end;
+$$;
+
+grant execute on function public.mock_draft_make_pick(uuid, text, text, boolean) to authenticated;

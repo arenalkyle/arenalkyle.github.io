@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock Draft Room &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 32px; max-width: 1100px; width: 100%; margin: 0 auto;
+  display: flex; flex-direction: column; overflow-y: auto;
+}
+.room-header{ display:flex; align-items:flex-start; justify-content:space-between; gap: 14px; margin-bottom: 16px; flex-wrap:wrap; }
+.room-header h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
+.room-sub{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); }
+.room-header-actions{ display:flex; gap: 8px; flex-wrap:wrap; }
+.rh-btn{
+  background: var(--panel-alt); border: 1px solid var(--border); color: var(--text-dim); font-size: 12px;
+  font-family: 'JetBrains Mono', monospace; padding: 8px 14px; border-radius: 8px; cursor:pointer; white-space:nowrap;
+}
+.rh-btn:hover{ border-color: var(--brass-dim); color: var(--text); }
+.rh-btn.primary{ background: var(--brass); border-color: var(--brass); color: #241209; font-weight: 700; }
+.rh-btn.danger{ border-color: var(--danger); color: var(--danger); }
+
+.panel{ background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.panel h2{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 16px; color: var(--text); margin: 0 0 14px; }
+.empty-state{ padding: 40px 20px; text-align:center; color: var(--text-mute); font-size: 13px; }
+
+/* ---------- Waiting room ---------- */
+.slots-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.slot-card{ background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.slot-card.mine{ border-color: var(--brass); }
+.slot-idx{ font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-mute); margin-bottom: 4px; }
+.slot-label{ font-weight: 600; font-size: 13.5px; color: var(--text); display:flex; align-items:center; gap: 6px; }
+.slot-tag{ font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform:uppercase; padding: 2px 6px; border-radius: 5px; background: rgba(201,161,90,0.14); color: var(--brass); }
+.slot-open{ color: var(--text-mute); font-size: 12.5px; }
+.slot-actions{ margin-top: 8px; display:flex; gap: 6px; flex-wrap:wrap; }
+.slot-actions button{
+  background:none; border: 1px solid var(--border); color: var(--text-mute); font-size: 10.5px;
+  font-family: 'JetBrains Mono', monospace; padding: 4px 8px; border-radius: 6px; cursor:pointer;
+}
+.slot-actions button:hover{ border-color: var(--brass); color: var(--brass-bright); }
+.waiting-actions{ display:flex; gap: 10px; flex-wrap:wrap; align-items:center; }
+.invite-box{ display:flex; align-items:center; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-mute); margin-top: 14px; }
+.invite-box code{ background: var(--panel-alt); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: var(--brass-bright); }
+
+/* ---------- Live draft ---------- */
+.clock-bar{
+  display:flex; align-items:center; justify-content:space-between; gap: 14px; background: var(--panel); border: 1px solid var(--brass-dim);
+  border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; flex-wrap:wrap;
+}
+.clock-pick{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 15px; color: var(--text); }
+.clock-turn{ font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-mute); margin-top: 2px; }
+.clock-turn.mine{ color: var(--brass-bright); }
+.clock-timer{ font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; color: var(--brass-bright); }
+
+.live-layout{ display:grid; grid-template-columns: 1fr 380px; gap: 16px; align-items:start; }
+@media (max-width: 900px){ .live-layout{ grid-template-columns: 1fr; } }
+
+.pool-search{
+  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; color: var(--text); font-size: 13.5px; outline:none; margin-bottom: 12px;
+}
+.pool-search:focus{ border-color: var(--brass); }
+.pool-list{ display:flex; flex-direction:column; gap: 5px; max-height: 60vh; overflow-y:auto; }
+.pool-row{
+  display:flex; align-items:center; gap: 10px; background: var(--panel-alt); border: 1px solid var(--border-soft);
+  border-radius: 8px; padding: 7px 10px; cursor:pointer;
+}
+.pool-row:hover{ border-color: var(--brass-dim); }
+.pool-row.disabled{ opacity: 0.45; cursor:default; pointer-events:none; }
+.pool-row .avatar-wrap{ width: 26px; height: 26px; }
+.pool-name{ font-weight: 600; font-size: 13px; color: var(--text); flex: 1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pool-meta{ font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--text-mute); flex-shrink:0; }
+
+.tabs-row{ display:flex; gap: 6px; margin-bottom: 10px; }
+.tab-btn{
+  background: var(--panel-alt); border: 1px solid var(--border); color: var(--text-dim); font-size: 11.5px;
+  font-family: 'JetBrains Mono', monospace; padding: 7px 12px; border-radius: 999px; cursor:pointer;
+}
+.tab-btn.active{ border-color: var(--brass); color: var(--brass-bright); background: rgba(201,161,90,0.1); }
+
+.pick-line{ display:flex; align-items:center; gap: 8px; font-size: 12.5px; color: var(--text-dim); padding: 6px 0; border-bottom: 1px solid var(--border-soft); }
+.pick-line:last-child{ border-bottom:none; }
+.pick-num{ font-family: 'JetBrains Mono', monospace; color: var(--text-mute); flex-shrink:0; width: 44px; }
+.pick-team{ color: var(--brass); flex-shrink:0; }
+.pick-player{ color: var(--text); }
+
+.board-wrap{ overflow-x:auto; }
+table.board-table{ border-collapse: collapse; width: 100%; min-width: 600px; }
+table.board-table th{
+  position: sticky; top:0; background: #201310; text-align:left; padding: 6px 8px; font-size: 10px;
+  font-family: 'JetBrains Mono', monospace; color: var(--text-mute); border-bottom: 1px solid var(--border); white-space:nowrap;
+}
+table.board-table td{ padding: 6px 8px; font-size: 11.5px; color: var(--text-dim); border-bottom: 1px solid var(--border-soft); white-space:nowrap; }
+table.board-table td.on-clock{ background: rgba(201,161,90,0.14); color: var(--brass-bright); font-weight:600; }
+table.board-table td.empty-cell{ color: var(--text-mute); opacity: 0.5; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+      <div class="room-header">
+        <div>
+          <h1 id="roomName">Loading&hellip;</h1>
+          <div class="room-sub" id="roomSub"></div>
+        </div>
+        <div class="room-header-actions" id="roomHeaderActions"></div>
+      </div>
+
+      <div id="loadingView"><div class="empty-state">Loading room&hellip;</div></div>
+      <div id="notFoundView" class="empty-state" style="display:none">Room not found.</div>
+
+      <div id="waitingView" style="display:none">
+        <div class="panel">
+          <h2>Draft Order</h2>
+          <div class="slots-grid" id="slotsGrid"></div>
+          <div class="waiting-actions" id="waitingActions"></div>
+          <div class="invite-box" id="inviteBox"></div>
+        </div>
+      </div>
+
+      <div id="liveView" style="display:none">
+        <div class="clock-bar" id="clockBar"></div>
+        <div class="live-layout">
+          <div class="panel">
+            <input class="pool-search" id="poolSearch" placeholder="Search available players&hellip;">
+            <div class="pool-list" id="poolList"></div>
+          </div>
+          <div>
+            <div class="tabs-row" id="sideTabs">
+              <button class="tab-btn active" data-tab="picks">Picks</button>
+              <button class="tab-btn" data-tab="team">My Team</button>
+              <button class="tab-btn" data-tab="board">Board</button>
+            </div>
+            <div class="panel" id="picksTab"></div>
+            <div class="panel" id="teamTab" style="display:none"></div>
+            <div class="panel" id="boardTab" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="completedView" style="display:none">
+        <div class="panel">
+          <h2>Final Results</h2>
+          <div class="board-wrap" id="finalBoard"></div>
+          <button class="rh-btn primary" id="draftAgainBtn" style="margin-top:16px">Draft Again</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/players-data.js"></script>
+<script src="js/player-render.js"></script>
+<script src="js/player-detail.js"></script>
+<script>
+(function(){
+  var roomId = new URLSearchParams(window.location.search).get('room');
+
+  var els = {
+    roomName: document.getElementById('roomName'),
+    roomSub: document.getElementById('roomSub'),
+    headerActions: document.getElementById('roomHeaderActions'),
+    loadingView: document.getElementById('loadingView'),
+    notFoundView: document.getElementById('notFoundView'),
+    waitingView: document.getElementById('waitingView'),
+    slotsGrid: document.getElementById('slotsGrid'),
+    waitingActions: document.getElementById('waitingActions'),
+    inviteBox: document.getElementById('inviteBox'),
+    liveView: document.getElementById('liveView'),
+    clockBar: document.getElementById('clockBar'),
+    poolSearch: document.getElementById('poolSearch'),
+    poolList: document.getElementById('poolList'),
+    sideTabs: document.getElementById('sideTabs'),
+    picksTab: document.getElementById('picksTab'),
+    teamTab: document.getElementById('teamTab'),
+    boardTab: document.getElementById('boardTab'),
+    completedView: document.getElementById('completedView'),
+    finalBoard: document.getElementById('finalBoard'),
+    draftAgainBtn: document.getElementById('draftAgainBtn')
+  };
+
+  if (!roomId){
+    els.loadingView.style.display = 'none';
+    els.notFoundView.style.display = '';
+    els.notFoundView.textContent = 'No room specified.';
+  }
+
+  var room = null, slots = [], picks = [], profilesByUser = {};
+  var activeSideTab = 'picks';
+  var autopickInFlightForPick = null;
+  var photoObserver = window.PlayerRender ? window.PlayerRender.createPhotoObserver() : null;
+
+  function myId(){ return window.Auth && window.Auth.user ? window.Auth.user.id : null; }
+  function initials(name){
+    var parts = String(name || '').replace(/[^a-zA-Z0-9 ]/g, '').split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function slotForPick(teamCount, draftType, pickNumber){
+    var round = Math.floor((pickNumber - 1) / teamCount) + 1;
+    var posInRound = ((pickNumber - 1) % teamCount) + 1;
+    var slotIndex = (draftType === 'snake' && round % 2 === 0) ? (teamCount - posInRound + 1) : posInRound;
+    return { round: round, slotIndex: slotIndex };
+  }
+
+  function consensusRank(p){
+    var vals = [p.kyle, p.wesley].filter(function(v){ return v != null; });
+    if (!vals.length) return Infinity;
+    return vals.reduce(function(a, b){ return a + b; }, 0) / vals.length;
+  }
+
+  function slotByIndex(idx){ return slots.find(function(s){ return s.slot_index === idx; }) || null; }
+  function mySlot(){ var uid = myId(); return uid ? slots.find(function(s){ return s.user_id === uid; }) || null : null; }
+
+  function onClock(){
+    if (!room || room.status !== 'in_progress') return null;
+    var info = slotForPick(room.team_count, room.draft_type, room.current_pick);
+    return { round: info.round, slot: slotByIndex(info.slotIndex) };
+  }
+
+  // ---------------- Load ----------------
+  function loadAll(){
+    Promise.all([
+      window.sb.from('mock_draft_rooms').select('*').eq('id', roomId).maybeSingle(),
+      window.sb.from('mock_draft_slots').select('*').eq('room_id', roomId).order('slot_index'),
+      window.sb.from('mock_draft_picks').select('*').eq('room_id', roomId).order('pick_number')
+    ]).then(function(results){
+      if (!results[0].data){
+        els.loadingView.style.display = 'none';
+        els.notFoundView.style.display = '';
+        els.roomName.textContent = 'Room Not Found';
+        return;
+      }
+      room = results[0].data;
+      slots = results[1].data || [];
+      picks = results[2].data || [];
+
+      var userIds = Array.from(new Set(slots.map(function(s){ return s.user_id; }).filter(Boolean)));
+      var missing = userIds.filter(function(id){ return !profilesByUser[id]; });
+      var profilesPromise = missing.length
+        ? window.sb.from('profiles').select('id,username,display_name,avatar_url').in('id', missing).then(function(res){
+            (res.data || []).forEach(function(p){ profilesByUser[p.id] = p; });
+          })
+        : Promise.resolve();
+
+      profilesPromise.then(function(){
+        els.loadingView.style.display = 'none';
+        render();
+      });
+    });
+  }
+
+  // ---------------- Header ----------------
+  function renderHeader(){
+    els.roomName.textContent = room.name;
+    els.roomSub.textContent = room.team_count + '-team · ' + room.rounds + ' rounds · ' + room.draft_type +
+      ' · ' + (room.is_public ? 'Public' : 'Private') + ' · Host: ' + hostLabel();
+
+    var actions = [];
+    if (myId()){
+      actions.push('<button class="rh-btn" id="leaveBtn" style="display:none">Leave Room</button>');
+    }
+    els.headerActions.innerHTML = actions.join('');
+  }
+
+  function hostLabel(){
+    var hostSlot = slots.find(function(s){ return s.user_id === room.host_id; });
+    return hostSlot ? hostSlot.team_label : 'Unknown';
+  }
+
+  // ---------------- Waiting room ----------------
+  function renderWaiting(){
+    els.slotsGrid.innerHTML = '';
+    var uid = myId();
+    var isHost = uid && room.host_id === uid;
+    var iAmIn = !!mySlot();
+
+    slots.forEach(function(s){
+      var card = document.createElement('div');
+      card.className = 'slot-card' + (s.user_id === uid ? ' mine' : '');
+      var profile = s.user_id ? profilesByUser[s.user_id] : null;
+      var labelHtml = s.user_id
+        ? '<span>' + (profile ? (profile.display_name || profile.username) : s.team_label) + '</span>' + (s.user_id === uid ? '<span class="slot-tag">You</span>' : '')
+        : (s.is_bot ? '<span>' + s.team_label + '</span><span class="slot-tag">Bot</span>' : '<span class="slot-open">Open</span>');
+
+      card.innerHTML =
+        '<div class="slot-idx">Pick ' + s.slot_index + '</div>' +
+        '<div class="slot-label">' + labelHtml + '</div>';
+
+      var actions = document.createElement('div');
+      actions.className = 'slot-actions';
+
+      if (!s.user_id && !s.is_bot && !iAmIn && uid){
+        var joinBtn = document.createElement('button');
+        joinBtn.textContent = 'Join';
+        joinBtn.addEventListener('click', function(){ joinSlot(s.slot_index); });
+        actions.appendChild(joinBtn);
+      }
+      if (isHost && !s.user_id){
+        var botBtn = document.createElement('button');
+        botBtn.textContent = s.is_bot ? 'Open Slot' : 'Fill w/ Bot';
+        botBtn.addEventListener('click', function(){ toggleBot(s.slot_index, !s.is_bot); });
+        actions.appendChild(botBtn);
+      }
+      if (actions.childElementCount) card.appendChild(actions);
+
+      els.slotsGrid.appendChild(card);
+    });
+
+    els.waitingActions.innerHTML = '';
+    if (!uid){
+      var loginBtn = document.createElement('button');
+      loginBtn.className = 'rh-btn primary';
+      loginBtn.textContent = 'Log In to Join';
+      loginBtn.addEventListener('click', function(){ window.Auth.openLogin(); });
+      els.waitingActions.appendChild(loginBtn);
+    } else if (!iAmIn){
+      var autoJoinBtn = document.createElement('button');
+      autoJoinBtn.className = 'rh-btn primary';
+      autoJoinBtn.textContent = 'Join Room';
+      autoJoinBtn.addEventListener('click', function(){ joinSlot(null); });
+      els.waitingActions.appendChild(autoJoinBtn);
+    } else {
+      var leaveBtn = document.createElement('button');
+      leaveBtn.className = 'rh-btn';
+      leaveBtn.textContent = 'Leave Room';
+      leaveBtn.addEventListener('click', leaveRoom);
+      els.waitingActions.appendChild(leaveBtn);
+    }
+    if (isHost){
+      var startBtn = document.createElement('button');
+      startBtn.className = 'rh-btn primary';
+      startBtn.textContent = 'Start Draft';
+      startBtn.addEventListener('click', startDraft);
+      els.waitingActions.appendChild(startBtn);
+    }
+
+    var link = window.location.origin + window.location.pathname + '?room=' + room.id;
+    els.inviteBox.innerHTML = 'Invite link: <code id="inviteLink">' + link + '</code> <button class="rh-btn" id="copyInviteBtn">Copy</button> &nbsp; Code: <code>' + room.invite_code + '</code>';
+    var copyBtn = document.getElementById('copyInviteBtn');
+    if (copyBtn) copyBtn.addEventListener('click', function(){
+      navigator.clipboard.writeText(link).then(function(){ copyBtn.textContent = 'Copied!'; setTimeout(function(){ copyBtn.textContent = 'Copy'; }, 1500); });
+    });
+  }
+
+  function joinSlot(slotIndex){
+    window.sb.rpc('join_mock_draft_room', { p_room_id: room.id, p_invite_code: room.invite_code, p_slot_index: slotIndex }).then(function(res){
+      if (res.error){ alert(res.error.message); return; }
+      loadAll();
+    });
+  }
+  function leaveRoom(){
+    window.sb.rpc('leave_mock_draft_room', { p_room_id: room.id }).then(function(res){
+      if (res.error){ alert(res.error.message); return; }
+      loadAll();
+    });
+  }
+  function toggleBot(slotIndex, makeBot){
+    window.sb.rpc('set_mock_draft_slot_bot', { p_room_id: room.id, p_slot_index: slotIndex, p_is_bot: makeBot }).then(function(res){
+      if (res.error){ alert(res.error.message); return; }
+      loadAll();
+    });
+  }
+  function startDraft(){
+    window.sb.rpc('start_mock_draft', { p_room_id: room.id }).then(function(res){
+      if (res.error){ alert(res.error.message); return; }
+      loadAll();
+    });
+  }
+
+  // ---------------- Live draft ----------------
+  function pickedKeySet(){ return new Set(picks.map(function(p){ return p.player_key; })); }
+
+  function renderClock(){
+    var oc = onClock();
+    if (!oc || !oc.slot) return;
+    var mine = oc.slot.user_id === myId() && !oc.slot.is_bot;
+    els.clockBar.innerHTML =
+      '<div>' +
+        '<div class="clock-pick">Pick ' + room.current_pick + ' &middot; Round ' + oc.round + '</div>' +
+        '<div class="clock-turn' + (mine ? ' mine' : '') + '">' + (mine ? "You're on the clock" : (oc.slot.is_bot ? oc.slot.team_label + ' (bot) is picking' : oc.slot.team_label + ' is on the clock')) + '</div>' +
+      '</div>' +
+      '<div class="clock-timer" id="clockTimer">--</div>';
+  }
+
+  function tickClock(){
+    if (!room || room.status !== 'in_progress' || !room.pick_deadline) return;
+    var msLeft = new Date(room.pick_deadline).getTime() - Date.now();
+    var timerEl = document.getElementById('clockTimer');
+    if (timerEl){
+      var secs = Math.max(0, Math.ceil(msLeft / 1000));
+      timerEl.textContent = secs + 's';
+    }
+    var oc = onClock();
+    if (!oc || !oc.slot) return;
+    var due = oc.slot.is_bot || msLeft <= 0;
+    if (due && autopickInFlightForPick !== room.current_pick){
+      autopickInFlightForPick = room.current_pick;
+      var picked = pickedKeySet();
+      var best = window.__PLAYERS__.filter(function(p){ return !picked.has(window.playerKey(p)); })
+        .sort(function(a, b){ return consensusRank(a) - consensusRank(b); })[0];
+      if (best){
+        window.sb.rpc('mock_draft_make_pick', {
+          p_room_id: room.id, p_player_key: window.playerKey(best), p_player_name: best.name, p_is_autopick: true
+        }).then(function(){ loadAll(); }).catch(function(){});
+      }
+    }
+  }
+
+  function renderPool(){
+    var picked = pickedKeySet();
+    var query = els.poolSearch.value.trim().toLowerCase();
+    var oc = onClock();
+    var myTurn = !!(oc && oc.slot && oc.slot.user_id === myId() && !oc.slot.is_bot);
+
+    var list = window.__PLAYERS__.filter(function(p){
+      if (picked.has(window.playerKey(p))) return false;
+      if (query && p.name.toLowerCase().indexOf(query) === -1) return false;
+      return true;
+    }).sort(function(a, b){ return consensusRank(a) - consensusRank(b); }).slice(0, 60);
+
+    els.poolList.innerHTML = '';
+    list.forEach(function(p){
+      var row = document.createElement('div');
+      row.className = 'pool-row' + (myTurn ? '' : ' disabled');
+      if (window.PlayerRender){ var av = window.PlayerRender.buildAvatarWrap(p, photoObserver); row.appendChild(av); }
+      var name = document.createElement('div');
+      name.className = 'pool-name';
+      name.textContent = p.name + ' · ' + (p.pos === 'DST' ? 'D/ST' : p.pos) + ' ' + p.team;
+      row.appendChild(name);
+      var meta = document.createElement('div');
+      meta.className = 'pool-meta';
+      meta.textContent = p.ppg25 ? p.ppg25.toFixed(1) + ' ppg' : '';
+      row.appendChild(meta);
+      row.addEventListener('click', function(){
+        if (!myTurn) return;
+        window.sb.rpc('mock_draft_make_pick', {
+          p_room_id: room.id, p_player_key: window.playerKey(p), p_player_name: p.name, p_is_autopick: false
+        }).then(function(res){
+          if (res.error){ alert(res.error.message); return; }
+          loadAll();
+        });
+      });
+      els.poolList.appendChild(row);
+    });
+  }
+
+  function renderPicksTab(){
+    if (!picks.length){ els.picksTab.innerHTML = '<div class="empty-state">No picks yet.</div>'; return; }
+    var html = picks.slice().reverse().map(function(p){
+      var s = slotByIndex(p.slot_index);
+      var pickLabel = p.round + '.' + String(((p.pick_number - 1) % room.team_count) + 1).padStart(2, '0');
+      return '<div class="pick-line"><span class="pick-num">' + pickLabel + '</span><span class="pick-team">' + (s ? s.team_label : '?') + '</span><span class="pick-player">' + p.player_name + '</span></div>';
+    }).join('');
+    els.picksTab.innerHTML = html;
+  }
+
+  function renderTeamTab(){
+    var slot = mySlot();
+    if (!slot){ els.teamTab.innerHTML = '<div class="empty-state">You\'re just watching this draft.</div>'; return; }
+    var mine = picks.filter(function(p){ return p.slot_index === slot.slot_index; });
+    if (!mine.length){ els.teamTab.innerHTML = '<div class="empty-state">No picks yet.</div>'; return; }
+    els.teamTab.innerHTML = mine.map(function(p){
+      return '<div class="pick-line"><span class="pick-num">Rd ' + p.round + '</span><span class="pick-player">' + p.player_name + '</span></div>';
+    }).join('');
+  }
+
+  function renderBoard(target){
+    var oc = onClock();
+    var boardMap = {};
+    picks.forEach(function(p){ boardMap[p.round + '-' + p.slot_index] = p.player_name; });
+
+    var html = '<table class="board-table"><thead><tr><th>Rd</th>';
+    slots.forEach(function(s){ html += '<th>' + s.team_label + '</th>'; });
+    html += '</tr></thead><tbody>';
+    for (var r = 1; r <= room.rounds; r++){
+      html += '<tr><td>' + r + '</td>';
+      slots.forEach(function(s){
+        var isOnClock = oc && oc.round === r && oc.slot && oc.slot.slot_index === s.slot_index;
+        var name = boardMap[r + '-' + s.slot_index];
+        html += '<td class="' + (isOnClock ? 'on-clock' : (name ? '' : 'empty-cell')) + '">' + (name || (isOnClock ? 'On the clock' : '—')) + '</td>';
+      });
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    target.innerHTML = html;
+  }
+
+  document.querySelectorAll('#sideTabs .tab-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      activeSideTab = btn.getAttribute('data-tab');
+      document.querySelectorAll('#sideTabs .tab-btn').forEach(function(b){ b.classList.toggle('active', b === btn); });
+      els.picksTab.style.display = activeSideTab === 'picks' ? '' : 'none';
+      els.teamTab.style.display = activeSideTab === 'team' ? '' : 'none';
+      els.boardTab.style.display = activeSideTab === 'board' ? '' : 'none';
+      if (activeSideTab === 'board') renderBoard(els.boardTab);
+    });
+  });
+  els.poolSearch.addEventListener('input', renderPool);
+
+  function renderLive(){
+    renderClock();
+    renderPool();
+    renderPicksTab();
+    renderTeamTab();
+    if (activeSideTab === 'board') renderBoard(els.boardTab);
+  }
+
+  // ---------------- Completed ----------------
+  function renderCompleted(){
+    renderBoard(els.finalBoard);
+  }
+  els.draftAgainBtn.addEventListener('click', function(){
+    if (!window.Auth || !window.Auth.user){ window.Auth.openLogin(); return; }
+    window.sb.rpc('create_mock_draft_room', {
+      p_name: room.name + ' (rematch)',
+      p_team_count: room.team_count, p_rounds: room.rounds, p_pick_seconds: room.pick_seconds,
+      p_draft_type: room.draft_type, p_is_public: room.is_public
+    }).then(function(res){
+      if (res.error){ alert(res.error.message); return; }
+      window.location.href = 'mock-draft-room.html?room=' + res.data;
+    });
+  });
+
+  // ---------------- Dispatch ----------------
+  function render(){
+    renderHeader();
+    els.waitingView.style.display = room.status === 'waiting' ? '' : 'none';
+    els.liveView.style.display = room.status === 'in_progress' ? '' : 'none';
+    els.completedView.style.display = room.status === 'completed' ? '' : 'none';
+    if (room.status === 'waiting') renderWaiting();
+    else if (room.status === 'in_progress') renderLive();
+    else renderCompleted();
+  }
+
+  if (roomId){
+    setInterval(tickClock, 1000);
+    var channel = window.sb.channel('mock-draft-room-' + roomId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mock_draft_rooms', filter: 'id=eq.' + roomId }, loadAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mock_draft_slots', filter: 'room_id=eq.' + roomId }, loadAll)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mock_draft_picks', filter: 'room_id=eq.' + roomId }, loadAll)
+      .subscribe();
+    window.addEventListener('beforeunload', function(){ window.sb.removeChannel(channel); });
+
+    window.addEventListener('auth:change', loadAll);
+    if (window.Auth){ window.Auth.ready.then(loadAll); } else { loadAll(); }
+  }
+})();
+</script>
+</body>
+</html>
