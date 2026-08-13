@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redraft Rankings &middot; The Board</title>
+<link rel="stylesheet" href="css/theme.css">
+<style>
+html, body{ overflow: hidden; }
+
+.wrap{
+  flex: 1 1 auto; min-height: 0; padding: 10px 20px 18px;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* ---------- Header ---------- */
+.board-head{
+  flex: 0 0 auto;
+  display:flex; flex-direction: column; align-items: center; text-align: center;
+  gap: 4px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border-soft);
+}
+.eyebrow{
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.2em;
+  text-transform: uppercase; color: var(--brass); margin: 0; display:flex; align-items:center; gap: 10px;
+}
+.eyebrow::before{ content:""; width: 16px; height: 1px; background: var(--brass-dim); display:inline-block; }
+.board-head h1{
+  font-family: 'Fraunces', serif; font-optical-sizing: auto; font-weight: 700;
+  font-size: clamp(22px, 3.2vw, 28px); line-height: 1; margin: 0; color: var(--text); letter-spacing: -0.01em;
+}
+.board-head h1 em{ font-style: italic; font-weight: 500; color: var(--brass-bright); }
+.head-meta{ font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-mute); }
+.head-meta strong{ color: var(--text-dim); font-weight: 500; }
+
+/* ---------- Controls ---------- */
+.search-field{ position: relative; margin-bottom: 12px; flex: 0 0 auto; }
+.search-field svg{
+  position:absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  width: 16px; height: 16px; stroke: var(--text-mute); pointer-events: none;
+}
+.search-field input{
+  width: 100%; background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 11px 14px 11px 40px; color: var(--text); font-family: 'Inter', sans-serif;
+  font-size: 14px; outline: none; transition: border-color .15s ease, background .15s ease;
+}
+.search-field input::placeholder{ color: var(--text-mute); }
+.search-field input:focus{ border-color: var(--brass); background: var(--panel-hi); }
+.search-clear{
+  position:absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none;
+  color: var(--text-mute); font-family: 'JetBrains Mono', monospace; font-size: 12px; cursor: pointer;
+  padding: 4px 8px; display:none;
+}
+.search-clear:hover{ color: var(--brass-bright); }
+
+.filters-row{
+  flex: 0 0 auto;
+  display:flex; align-items:center; gap: 24px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.filter-group{ display:flex; align-items:center; gap: 10px; flex-wrap: wrap; }
+.filter-label{
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--text-mute);
+}
+.pill-group{ display:flex; gap: 6px; flex-wrap: wrap; }
+.pill{
+  background: var(--panel); border: 1px solid var(--border); color: var(--text-dim);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.04em;
+  padding: 8px 13px; border-radius: 8px; cursor: pointer; transition: all .15s ease;
+}
+.pill:hover{ border-color: var(--brass-dim); color: var(--text); }
+.pill.active{ background: var(--brass); border-color: var(--brass); color: #241209; font-weight: 700; }
+
+/* ---------- Legend ---------- */
+.legend{
+  flex: 0 0 auto;
+  display:flex; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 14px; padding: 10px 16px;
+  background: rgba(0,0,0,0.15); border: 1px solid var(--border-soft); border-radius: 8px;
+}
+.legend-item{ display:flex; align-items:center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-mute); }
+.legend-chip{
+  width: 16px; height: 16px; border-radius: 4px; display:flex; align-items:center; justify-content:center;
+  font-family: 'Fraunces', serif; font-weight: 700; font-size: 10px; color: rgba(0,0,0,0.65);
+}
+
+/* ---------- Table ---------- */
+.table-shell{
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+}
+.table-scroll{ flex: 1 1 auto; min-height: 0; overflow: auto; }
+table{ width: 100%; border-collapse: collapse; min-width: 1080px; }
+
+thead th{
+  position: sticky; top: 0; z-index: 3; background: #201310; border-bottom: 1px solid var(--border);
+  text-align: left; padding: 13px 12px; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-mute); white-space: nowrap;
+  cursor: pointer; user-select: none;
+}
+thead th:hover{ color: var(--brass-bright); }
+thead th.sorted{ color: var(--brass-bright); }
+thead th .arrow{ font-size: 9px; margin-left: 4px; opacity: 0.8; }
+thead th.group-26{ color: #7a6a5a; }
+thead th.group-25{ color: var(--text-mute); }
+thead th.group-start{ border-left: 1px solid var(--border-soft); }
+thead th.no-sort{ cursor: default; }
+thead th.no-sort:hover{ color: var(--text-mute); }
+.col-pos{ text-align: center; min-width: 46px; }
+.pos-pill-cell{
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.03em;
+  color: var(--brass); background: rgba(201,161,90,0.12); border: 1px solid var(--border-soft);
+  border-radius: 5px; padding: 3px 6px; display:inline-block;
+}
+.pos-pill-cell.pos-QB{ color: #e0973f; background: rgba(224,151,63,0.14); border-color: rgba(224,151,63,0.35); }
+.pos-pill-cell.pos-WR{ color: #e8829c; background: rgba(232,130,156,0.14); border-color: rgba(232,130,156,0.35); }
+.pos-pill-cell.pos-RB{ color: #5b9bd5; background: rgba(91,155,213,0.14); border-color: rgba(91,155,213,0.35); }
+.pos-pill-cell.pos-TE{ color: #ffffff; background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.3); }
+.pos-pill-cell.pos-K{ color: #e8d24a; background: rgba(232,210,74,0.14); border-color: rgba(232,210,74,0.35); }
+.pos-pill-cell.pos-DST{ color: #e2726a; background: rgba(226,114,106,0.14); border-color: rgba(226,114,106,0.35); }
+
+th.col-photo, td.col-photo{ position: sticky; left: 0; z-index: 2; width: 48px; min-width: 48px; background: inherit; }
+th.col-rank, td.col-rank{ position: sticky; left: 48px; z-index: 2; min-width: 58px; background: inherit; }
+th.col-player, td.col-player{ position: sticky; left: 106px; z-index: 2; min-width: 190px; background: inherit; }
+th.col-photo, th.col-rank, th.col-player{ background: #201310; }
+
+.col-num{ text-align: right; min-width: 68px; }
+.col-num.group-start{ border-left: 1px solid var(--border-soft); }
+.col-bye{ text-align: center; min-width: 56px; }
+
+tbody tr{ border-bottom: 1px solid var(--border-soft); transition: background .1s ease; }
+tbody tr:nth-child(even){ background: rgba(0,0,0,0.12); }
+tbody tr:hover{ background: var(--panel-hi); }
+tbody tr.match{ background: rgba(230,195,132,0.10); outline: 1px solid var(--brass-dim); outline-offset: -1px; }
+
+td{ padding: 9px 12px; vertical-align: middle; font-size: 13.5px; }
+
+/* photo avatar */
+.avatar-wrap{
+  width: 34px; height: 34px; border-radius: 50%; overflow: hidden; background: var(--panel-alt);
+  border: 1px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  position: relative;
+}
+.avatar-wrap img{ width: 100%; height: 100%; object-fit: cover; object-position: top center; display:block; }
+.avatar-wrap.logo img{ object-fit: contain; padding: 4px; background: #17100e; }
+.avatar-wrap img.hidden{ display:none; }
+.avatar-fallback{
+  width:100%; height:100%; display:flex; align-items:center; justify-content:center;
+  font-family:'Fraunces', serif; font-weight:700; font-size:11px; color: var(--brass-dim);
+  background: var(--panel-alt);
+}
+
+.rank-cell{ display:flex; align-items:center; gap: 7px; }
+.rank-num{ font-family: 'JetBrains Mono', monospace; color: var(--text-mute); font-size: 12px; }
+.player-name{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 14.5px; color: var(--text); cursor: pointer; }
+.player-name:hover{ text-decoration: underline; text-decoration-color: var(--brass-dim); }
+.player-name .player-team{ font-weight: 500; color: var(--text-mute); }
+
+.num-cell{ font-family: 'JetBrains Mono', monospace; text-align: right; color: var(--text-dim); }
+.num-cell.pending{ color: var(--text-mute); opacity: 0.45; font-style: italic; }
+.bye-cell{ font-family: 'JetBrains Mono', monospace; text-align: center; color: var(--text-dim); }
+
+.tier-plate{
+  display:inline-flex; align-items:center; justify-content:center; width: 22px; height: 22px; border-radius: 5px;
+  font-family: 'Fraunces', serif; font-weight: 900; font-size: 12px; color: rgba(0,0,0,0.68);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 3px rgba(0,0,0,0.25); flex-shrink: 0;
+}
+
+.empty-state{ padding: 60px 20px; text-align: center; color: var(--text-mute); font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+
+.count-row{
+  flex: 0 0 auto;
+  margin-top: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute);
+  display:flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+}
+.count-row span strong{ color: var(--text-dim); }
+
+@media (max-width: 640px){
+  .wrap{ padding: 16px 12px 12px; }
+  th.col-player, td.col-player{ min-width: 150px; left: 96px; }
+}
+
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="main-area">
+    <div class="topbar"><div id="authBox"></div></div>
+    <div class="wrap">
+
+  <header class="board-head">
+    <p class="eyebrow">Redraft &middot; PPR &middot; Season Long</p>
+    <h1>The <em>Board</em></h1>
+    <div class="head-meta">392 players ranked &middot; 2 voices &middot; updated live</div>
+  </header>
+
+  <div class="search-field">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+    <input id="search" type="text" placeholder="Search a player&hellip;" autocomplete="off">
+    <button class="search-clear" id="searchClear" type="button">clear</button>
+  </div>
+
+  <div class="filters-row">
+    <div class="filter-group">
+      <span class="filter-label">Ranker</span>
+      <div class="pill-group" id="rankerPills"></div>
+    </div>
+    <div class="filter-group">
+      <span class="filter-label">Position</span>
+      <div class="pill-group" id="posPills">
+        <button class="pill active" data-pos="ALL">All</button>
+        <button class="pill" data-pos="QB">QB</button>
+        <button class="pill" data-pos="RB">RB</button>
+        <button class="pill" data-pos="WR">WR</button>
+        <button class="pill" data-pos="TE">TE</button>
+        <button class="pill" data-pos="K">K</button>
+        <button class="pill" data-pos="DST">D/ST</button>
+      </div>
+    </div>
+    <div class="filter-group" id="includeMineGroup" style="display:none">
+      <label class="filter-label" style="display:flex; align-items:center; gap:7px; cursor:pointer; text-transform:none; letter-spacing:normal;">
+        <input type="checkbox" id="includeMineCheckbox" style="accent-color:var(--brass); width:14px; height:14px;">
+        Include My Rankings
+      </label>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-chip" style="background:var(--tier-s)">S</span> Picks 1&ndash;3</div>
+    <div class="legend-item"><span class="legend-chip" style="background:var(--tier-a)">A</span> 4&ndash;6</div>
+    <div class="legend-item"><span class="legend-chip" style="background:var(--tier-b)">B</span> 7&ndash;12</div>
+    <div class="legend-item"><span class="legend-chip" style="background:var(--tier-c)">C</span> 13&ndash;22</div>
+    <div class="legend-item"><span class="legend-chip" style="background:var(--tier-d)">D</span> 23&ndash;32</div>
+    <div class="legend-item"><span class="legend-chip" style="background:var(--tier-e)">E</span> 33&ndash;42</div>
+    <div class="legend-item"><span class="legend-chip" style="background:var(--tier-f)">F</span> 43&ndash;52</div>
+    <div class="legend-item"><span class="legend-chip" style="background:var(--tier-g)">G</span> 53&ndash;82</div>
+    <div class="legend-item"><span class="legend-chip" style="background:var(--tier-h)">H</span> 83+</div>
+  </div>
+
+  <div class="table-shell">
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th class="col-photo"></th>
+            <th class="col-rank" data-sort="rankval">Rank<span class="arrow"></span></th>
+            <th class="col-player" data-sort="rankval">Player<span class="arrow"></span></th>
+            <th class="col-pos" data-sort="pos">PosRk<span class="arrow"></span></th>
+            <th class="col-bye no-sort">Bye</th>
+            <th class="col-num group-26 group-start" data-sort="points26">26&rsquo;Pts<span class="arrow"></span></th>
+            <th class="col-num group-26" data-sort="ppg26">26&rsquo;PPG<span class="arrow"></span></th>
+            <th class="col-num group-26" data-sort="posrank26">26&rsquo;PosRk<span class="arrow"></span></th>
+            <th class="col-num group-26" data-sort="ovrank26">26&rsquo;OvRk<span class="arrow"></span></th>
+            <th class="col-num group-25 group-start" data-sort="points25">25&rsquo;Pts<span class="arrow"></span></th>
+            <th class="col-num group-25" data-sort="ppg25">25&rsquo;PPG<span class="arrow"></span></th>
+            <th class="col-num group-25" data-sort="posrank25">25&rsquo;PosRk<span class="arrow"></span></th>
+            <th class="col-num group-25" data-sort="ovrank25">25&rsquo;OvRk<span class="arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="count-row" id="countRow"></div>
+
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sidebar.js"></script>
+<script src="js/players-data.js"></script>
+<script src="js/player-render.js"></script>
+<script src="js/player-detail.js"></script>
+<script>
+(function(){
+  // Fallback used until (or unless) live ranker data loads from Supabase --
+  // keeps the board working even before js/config.js has been filled in.
+  var FALLBACK_RANKERS = [
+    { key: 'kyle',   label: 'Kyle'   },
+    { key: 'wesley', label: 'Wesley' }
+  ];
+  var RANKERS = FALLBACK_RANKERS.slice();
+  var officialRankers = [];   // populated from live Editor/Admin rankings, if any
+  var myRankerMap = null;     // the signed-in user's own rankings, if any
+
+  var tierFor = window.PlayerRender.tierFor;
+
+  function avgOf(player){
+    var vals = [];
+    for (var i = 0; i < RANKERS.length; i++){
+      var v = player[RANKERS[i].key];
+      if (v !== null && v !== undefined) vals.push(v);
+    }
+    if (vals.length === 0) return null;
+    var sum = 0;
+    for (var j = 0; j < vals.length; j++) sum += vals[j];
+    return sum / vals.length;
+  }
+
+  function recomputeAverages(){
+    players.forEach(function(p){ p.avg = avgOf(p); });
+  }
+
+  var players = window.__PLAYERS__.map(function(p){
+    p.avg = avgOf(p);
+    return p;
+  });
+
+  var POS_ORDER = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
+  function posRank(pos){
+    return POS_ORDER.hasOwnProperty(pos) ? POS_ORDER[pos] : 99;
+  }
+  var posLabel = window.PlayerRender.posLabel;
+
+  var state = {
+    query: '',
+    posAll: true,
+    posSet: new Set(),          // populated only when posAll is false
+    rankerAll: true,
+    rankerSet: new Set(),       // populated only when rankerAll is false
+    includeMine: false,
+    sortKey: 'rankval',
+    sortDir: 'asc'
+  };
+
+  var POSITION_KEYS = ['QB', 'RB', 'WR', 'TE', 'K', 'DST'];
+  var RANKER_KEYS = RANKERS.map(function(r){ return r.key; });
+
+  var els = {
+    search: document.getElementById('search'),
+    clear: document.getElementById('searchClear'),
+    posPills: document.querySelectorAll('#posPills .pill'),
+    rankerPillsContainer: document.getElementById('rankerPills'),
+    tbody: document.getElementById('tbody'),
+    count: document.getElementById('countRow'),
+    headers: document.querySelectorAll('th[data-sort]'),
+    includeMineGroup: document.getElementById('includeMineGroup'),
+    includeMineCheckbox: document.getElementById('includeMineCheckbox')
+  };
+
+  function normalizeQuery(str){ return (str || '').toLowerCase().trim(); }
+
+  // ---------------- Position rank (PosRk column) ----------------
+  // Computed live from whichever ranking is currently active, over the
+  // full player set (not just the filtered/visible rows) so PosRk stays
+  // stable while searching or filtering by position.
+  function computePosRanks(){
+    var withRank = players.map(function(p){ return { p: p, rv: rankValueFor(p) }; });
+    withRank.sort(function(a, b){
+      var aNull = (a.rv === null || a.rv === undefined);
+      var bNull = (b.rv === null || b.rv === undefined);
+      if (aNull && bNull) return 0;
+      if (aNull) return 1;
+      if (bNull) return -1;
+      return a.rv - b.rv;
+    });
+    var counts = {};
+    var map = new Map();
+    withRank.forEach(function(item){
+      if (item.rv === null || item.rv === undefined) return;
+      var pos = item.p.pos;
+      counts[pos] = (counts[pos] || 0) + 1;
+      map.set(window.playerKey(item.p), posLabel(pos) + counts[pos]);
+    });
+    return map;
+  }
+
+  // ---------------- Ranker pills (dynamic: fallback or live) ----------------
+  function renderRankerPills(){
+    var html = '<button class="pill' + (state.rankerAll ? ' active' : '') + '" data-ranker="ALL">All</button>';
+    RANKERS.forEach(function(r){
+      var isActive = !state.rankerAll && state.rankerSet.has(r.key);
+      html += '<button class="pill' + (isActive ? ' active' : '') + '" data-ranker="' + r.key + '">' + r.label + '</button>';
+    });
+    els.rankerPillsContainer.innerHTML = html;
+    els.rankerPillsContainer.querySelectorAll('.pill').forEach(function(pill){
+      pill.addEventListener('click', function(){
+        var clicked = pill.getAttribute('data-ranker');
+        var result = toggleSelection(clicked, RANKER_KEYS, state.rankerAll, state.rankerSet);
+        state.rankerAll = result.all;
+        state.rankerSet = result.set;
+        renderRankerPills();
+        render();
+      });
+    });
+  }
+
+  // ---------------- Live rankers from Supabase ----------------
+  function isConfigured(){
+    return window.APP_CONFIG && window.APP_CONFIG.SUPABASE_URL &&
+      window.APP_CONFIG.SUPABASE_URL.indexOf('YOUR-PROJECT-REF') === -1 && window.sb;
+  }
+
+  function applyRankerMapToPlayers(key, map){
+    players.forEach(function(p){
+      var v = map.get(window.playerKey(p));
+      p[key] = (v === undefined) ? null : v;
+    });
+  }
+
+  function updateRankers(){
+    var list = officialRankers.length ? officialRankers.slice() : FALLBACK_RANKERS.slice();
+    if (state.includeMine && myRankerMap){
+      list = list.concat([{ key: 'mine', label: 'My Rankings' }]);
+    }
+    RANKERS = list;
+    RANKER_KEYS = RANKERS.map(function(r){ return r.key; });
+    state.rankerAll = true;
+    state.rankerSet = new Set();
+    recomputeAverages();
+    renderRankerPills();
+    render();
+  }
+
+  function loadLiveRankers(){
+    if (!isConfigured()) return;
+    window.sb.from('rankings').select('owner_id, player_key, rank').then(function(res){
+      if (res.error || !res.data || res.data.length === 0) return;
+      var ownerIds = Array.from(new Set(res.data.map(function(r){ return r.owner_id; })));
+      return window.sb.from('profiles').select('id, username, display_name, role').in('id', ownerIds).then(function(profRes){
+        var profileById = {};
+        (profRes.data || []).forEach(function(pr){ profileById[pr.id] = pr; });
+
+        var byOwner = {};
+        res.data.forEach(function(row){
+          if (!byOwner[row.owner_id]) byOwner[row.owner_id] = new Map();
+          byOwner[row.owner_id].set(row.player_key, row.rank);
+        });
+
+        var currentUserId = window.Auth && window.Auth.user ? window.Auth.user.id : null;
+        var newOfficial = [];
+        myRankerMap = null;
+
+        Object.keys(byOwner).forEach(function(ownerId){
+          var prof = profileById[ownerId];
+          if (!prof) return;
+          var map = byOwner[ownerId];
+          if (prof.role === 'admin' || prof.role === 'editor'){
+            var key = 'live_' + ownerId;
+            newOfficial.push({ key: key, label: prof.display_name || prof.username });
+            applyRankerMapToPlayers(key, map);
+          } else if (ownerId === currentUserId){
+            myRankerMap = map;
+            applyRankerMapToPlayers('mine', map);
+          }
+        });
+
+        officialRankers = newOfficial;
+        updateRankers();
+      });
+    }).catch(function(){ /* stay on fallback rankers */ });
+  }
+
+  function updateIncludeMineVisibility(){
+    var canEdit = window.Auth && window.Auth.can('create_edit_own_rankings') && window.Auth.user;
+    els.includeMineGroup.style.display = canEdit ? '' : 'none';
+    if (!canEdit && state.includeMine){
+      state.includeMine = false;
+      els.includeMineCheckbox.checked = false;
+      updateRankers();
+    }
+  }
+
+  els.includeMineCheckbox.addEventListener('change', function(){
+    state.includeMine = els.includeMineCheckbox.checked;
+    updateRankers();
+  });
+
+  window.addEventListener('auth:change', function(){
+    updateIncludeMineVisibility();
+    loadLiveRankers();
+  });
+
+  function avgOfKeys(player, keys){
+    var vals = [];
+    for (var i = 0; i < keys.length; i++){
+      var v = player[keys[i]];
+      if (v !== null && v !== undefined) vals.push(v);
+    }
+    if (vals.length === 0) return null;
+    var sum = 0;
+    for (var j = 0; j < vals.length; j++) sum += vals[j];
+    return sum / vals.length;
+  }
+
+  // Shared multi-select toggle: "ALL" is exclusive; clicking a specific value
+  // while ALL is active narrows to just that value; toggling values in/out
+  // otherwise; selecting every individual value (or none) collapses back to ALL.
+  function toggleSelection(clicked, allKeys, isAll, currentSet){
+    if (clicked === 'ALL') return { all: true, set: new Set() };
+    var newSet;
+    if (isAll){
+      newSet = new Set([clicked]);
+    } else {
+      newSet = new Set(currentSet);
+      if (newSet.has(clicked)) newSet.delete(clicked);
+      else newSet.add(clicked);
+    }
+    if (newSet.size === 0 || newSet.size === allKeys.length){
+      return { all: true, set: new Set() };
+    }
+    return { all: false, set: newSet };
+  }
+
+  function rankValueFor(player){
+    if (state.rankerAll) return player.avg;
+    return avgOfKeys(player, Array.from(state.rankerSet));
+  }
+
+  function filtered(){
+    var q = normalizeQuery(state.query);
+    return players.filter(function(p){
+      if (!state.posAll && !state.posSet.has(p.pos)) return false;
+      if (!q) return true;
+      return normalizeQuery(p.name).indexOf(q) !== -1 || normalizeQuery(p.team).indexOf(q) !== -1;
+    });
+  }
+
+  function sorted(list){
+    var key = state.sortKey;
+    var dir = state.sortDir === 'asc' ? 1 : -1;
+    return list.slice().sort(function(a, b){
+      var av, bv;
+      if (key === 'rankval'){ av = rankValueFor(a); bv = rankValueFor(b); }
+      else if (key === 'pos'){ av = posRank(a.pos); bv = posRank(b.pos); }
+      else { av = a[key]; bv = b[key]; }
+      var aNull = (av === null || av === undefined);
+      var bNull = (bv === null || bv === undefined);
+      if (aNull && bNull) return 0;
+      if (aNull) return 1;
+      if (bNull) return -1;
+      if (av === bv) return 0;
+      return av < bv ? -1 * dir : 1 * dir;
+    });
+  }
+
+  var fmt = window.PlayerRender.fmt;
+  var fmtPoints = window.PlayerRender.fmtPoints;
+  var photoObserver = window.PlayerRender.createPhotoObserver();
+
+  // ---------------- Rendering ----------------
+  function renderRow(p, idx, isMatch, posRankMap){
+    var tr = document.createElement('tr');
+    if (isMatch) tr.className = 'match';
+
+    var rv = rankValueFor(p);
+    var tier = tierFor(rv);
+
+    // photo (team logo for D/ST, ESPN headshot for everyone else)
+    var tdPhoto = document.createElement('td');
+    tdPhoto.className = 'col-photo';
+    tdPhoto.appendChild(window.PlayerRender.buildAvatarWrap(p, photoObserver));
+    tr.appendChild(tdPhoto);
+
+    // rank + tier
+    var tdRank = document.createElement('td');
+    tdRank.className = 'col-rank';
+    var rankCell = document.createElement('div');
+    rankCell.className = 'rank-cell';
+    var plate = document.createElement('span');
+    plate.className = 'tier-plate';
+    plate.style.background = tier ? tier.color : 'var(--tier-h)';
+    plate.textContent = tier ? tier.key : '-';
+    var rn = document.createElement('span');
+    rn.className = 'rank-num';
+    rn.textContent = rv !== null && rv !== undefined ? fmt(rv, 1) : '\u2014';
+    rankCell.appendChild(plate);
+    rankCell.appendChild(rn);
+    tdRank.appendChild(rankCell);
+    tr.appendChild(tdRank);
+
+    // player (team appended to the name; position now lives in PosRk)
+    var tdPlayer = document.createElement('td');
+    tdPlayer.className = 'col-player';
+    var nameEl = document.createElement('div');
+    nameEl.className = 'player-name';
+    nameEl.appendChild(document.createTextNode(p.name + ' '));
+    var teamEl = document.createElement('span');
+    teamEl.className = 'player-team';
+    teamEl.textContent = '\u00b7 ' + p.team;
+    nameEl.appendChild(teamEl);
+    nameEl.addEventListener('click', function(e){ e.stopPropagation(); window.PlayerDetail.open(p); });
+    tdPlayer.appendChild(nameEl);
+    tr.appendChild(tdPlayer);
+
+    // position rank -- computed live from the current board ranking, e.g. "RB1"
+    var tdPos = document.createElement('td');
+    tdPos.className = 'col-pos';
+    var posSpan = document.createElement('span');
+    posSpan.className = 'pos-pill-cell pos-' + p.pos;
+    posSpan.textContent = posRankMap.get(window.playerKey(p)) || '\u2014';
+    tdPos.appendChild(posSpan);
+    tr.appendChild(tdPos);
+
+    // bye (no longer sortable, still shown)
+    var tdBye = document.createElement('td');
+    tdBye.className = 'bye-cell';
+    tdBye.textContent = p.bye ? p.bye : '\u2014';
+    tr.appendChild(tdBye);
+
+    // 26' Points / PPG / PosRank / OvRank (always 0 -- pending season)
+    var tdPts26 = document.createElement('td');
+    tdPts26.className = 'num-cell pending group-start';
+    tdPts26.textContent = fmtPoints(p.points26);
+    tr.appendChild(tdPts26);
+
+    [['ppg26', 1], ['posrank26', 0], ['ovrank26', 0]].forEach(function(pair){
+      var td = document.createElement('td');
+      td.className = 'num-cell pending';
+      td.textContent = fmt(p[pair[0]], pair[1]);
+      tr.appendChild(td);
+    });
+
+    // 25' Points / PPG / PosRank / OvRank
+    var tdPts25 = document.createElement('td');
+    tdPts25.className = 'num-cell group-start';
+    tdPts25.textContent = fmtPoints(p.points25);
+    tr.appendChild(tdPts25);
+
+    [['ppg25', 1], ['posrank25', 0], ['ovrank25', 0]].forEach(function(pair){
+      var td = document.createElement('td');
+      td.className = 'num-cell';
+      var v = p[pair[0]];
+      td.textContent = (v === 0) ? '0' : fmt(v, pair[1]);
+      tr.appendChild(td);
+    });
+
+    return tr;
+  }
+
+  function render(){
+    var list = sorted(filtered());
+    var posRankMap = computePosRanks();
+    els.tbody.innerHTML = '';
+
+    if (list.length === 0){
+      var tr = document.createElement('tr');
+      var td = document.createElement('td');
+      td.colSpan = 13;
+      td.className = 'empty-state';
+      td.textContent = 'No players match "' + state.query + '".';
+      tr.appendChild(td);
+      els.tbody.appendChild(tr);
+    } else {
+      var q = normalizeQuery(state.query);
+      var frag = document.createDocumentFragment();
+      list.forEach(function(p, idx){
+        var isMatch = q && normalizeQuery(p.name).indexOf(q) !== -1;
+        frag.appendChild(renderRow(p, idx, isMatch, posRankMap));
+      });
+      els.tbody.appendChild(frag);
+    }
+
+    var rankerLabel = state.rankerAll
+      ? 'All (avg)'
+      : RANKERS.filter(function(r){ return state.rankerSet.has(r.key); })
+          .map(function(r){ return r.label; }).join(' + ');
+    var posLabelStr = state.posAll
+      ? 'All'
+      : POSITION_KEYS.filter(function(k){ return state.posSet.has(k); })
+          .map(posLabel).join(' + ');
+    els.count.innerHTML = '<span>Showing <strong>' + list.length + '</strong> of <strong>' + players.length + '</strong> players</span>' +
+      '<span>Position: <strong>' + posLabelStr + '</strong> &middot; Ranker: <strong>' + rankerLabel + '</strong></span>';
+
+    els.clear.style.display = state.query ? 'block' : 'none';
+
+    els.headers.forEach(function(th){
+      th.classList.toggle('sorted', th.getAttribute('data-sort') === state.sortKey);
+      var arrow = th.querySelector('.arrow');
+      if (arrow) arrow.textContent = th.getAttribute('data-sort') === state.sortKey ? (state.sortDir === 'asc' ? '\u2191' : '\u2193') : '';
+    });
+  }
+
+  els.search.addEventListener('input', function(e){ state.query = e.target.value; render(); });
+  els.clear.addEventListener('click', function(){ state.query = ''; els.search.value = ''; els.search.focus(); render(); });
+
+  els.posPills.forEach(function(pill){
+    pill.addEventListener('click', function(){
+      var clicked = pill.getAttribute('data-pos');
+      var result = toggleSelection(clicked, POSITION_KEYS, state.posAll, state.posSet);
+      state.posAll = result.all;
+      state.posSet = result.set;
+      els.posPills.forEach(function(p){
+        var key = p.getAttribute('data-pos');
+        var isActive = key === 'ALL' ? state.posAll : (!state.posAll && state.posSet.has(key));
+        p.classList.toggle('active', isActive);
+      });
+      render();
+    });
+  });
+
+  els.headers.forEach(function(th){
+    th.addEventListener('click', function(){
+      var key = th.getAttribute('data-sort');
+      if (state.sortKey === key){
+        state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.sortKey = key;
+        state.sortDir = 'asc';
+      }
+      render();
+    });
+  });
+
+  renderRankerPills();
+  render();
+
+  if (window.Auth){
+    window.Auth.ready.then(function(){
+      updateIncludeMineVisibility();
+      loadLiveRankers();
+    });
+  }
+})();
+
+</script>
+</body>
+</html>

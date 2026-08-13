@@ -866,6 +866,47 @@ grant select on public.player_notes to anon, authenticated;
 grant insert, update on public.player_notes to authenticated;
 
 -- ============================================================
+-- player_notes_log: an append-only history of every player_notes
+-- edit, written automatically by the trigger below rather than by
+-- the client, so the player detail modal can show a running log of
+-- who changed a note and when instead of only the current text.
+--
+-- NOTE: this table/trigger has not been run against the live project
+-- yet -- it was added after the rest of player_notes was already
+-- live. Run just this block (through the CREATE TRIGGER below) in the
+-- Supabase SQL editor once, same as any other schema change described
+-- in SETUP.md.
+-- ============================================================
+create table public.player_notes_log (
+  id         bigint generated always as identity primary key,
+  player_key text not null,
+  notes      text not null,
+  updated_by uuid references auth.users(id) on delete set null,
+  updated_at timestamptz not null default now()
+);
+
+create index player_notes_log_player_key_idx on public.player_notes_log (player_key, updated_at desc);
+
+alter table public.player_notes_log enable row level security;
+create policy player_notes_log_select_all on public.player_notes_log for select using (true);
+grant select on public.player_notes_log to anon, authenticated;
+
+create or replace function public.log_player_notes_change()
+returns trigger
+language plpgsql security definer set search_path = public
+as $$
+begin
+  insert into public.player_notes_log (player_key, notes, updated_by, updated_at)
+  values (new.player_key, new.notes, new.updated_by, new.updated_at);
+  return new;
+end;
+$$;
+
+create trigger player_notes_log_trigger
+  after insert or update on public.player_notes
+  for each row execute function public.log_player_notes_change();
+
+-- ============================================================
 -- Seed permissions + default role policies
 -- ============================================================
 insert into public.permissions (key, description) values
@@ -905,6 +946,17 @@ insert into public.role_permissions (role, permission_key, allowed) values
 -- ============================================================
 -- Mock Drafts (mock-draft.html / mock-draft-room.html)
 --
+-- This whole section (tables + RPCs below) IS already live on the
+-- project -- CREATE TABLE will error with "already exists" if you try
+-- to run it again as-is. This file's DDL reflects the current desired
+-- schema (useful for a fresh install / reference), but any change to
+-- an already-live table or a function's argument list needs to ship
+-- as its own ALTER/DROP+CREATE script instead, same as
+-- supabase/migrate_mock_draft_roster_config.sql (the scoring_format +
+-- roster_* columns, the tightened team_count check, and
+-- create_mock_draft_room's new signature all arrived that way -- run
+-- that file once against a database that already has this table).
+--
 -- Multiple rooms run concurrently, each with a fixed number of
 -- draft slots (team_count), filled by real users and/or bots,
 -- picking in snake or linear order on a per-pick timer. A room is
@@ -939,10 +991,26 @@ create table public.mock_draft_rooms (
   id            uuid primary key default gen_random_uuid(),
   host_id       uuid not null references auth.users(id) on delete cascade,
   name          text not null,
-  team_count    integer not null check (team_count between 4 and 14),
-  rounds        integer not null check (rounds between 1 and 20),
+  team_count    integer not null check (team_count in (6, 8, 10, 12, 14, 16)),
+  rounds        integer not null check (rounds between 1 and 30),
   pick_seconds  integer not null default 60 check (pick_seconds between 15 and 300),
   draft_type    text not null default 'snake' check (draft_type in ('snake','linear')),
+  -- Governs how the client ranks "best player available" for the pool
+  -- and autopick (see mock-draft-room.html's formatAdjustedRank()) --
+  -- there's no per-format point-projection data in js/players-data.js,
+  -- so this nudges the existing consensus rank with a heuristic
+  -- multiplier per position rather than a true recompute.
+  scoring_format text not null default 'ppr' check (scoring_format in ('ppr','half_ppr','tep','superflex')),
+  -- Roster construction: starter counts per position + bench. `rounds`
+  -- above is always the sum of these, computed in create_mock_draft_room.
+  roster_qb     integer not null default 1 check (roster_qb between 0 and 4),
+  roster_rb     integer not null default 2 check (roster_rb between 0 and 6),
+  roster_wr     integer not null default 2 check (roster_wr between 0 and 6),
+  roster_te     integer not null default 1 check (roster_te between 0 and 4),
+  roster_flex   integer not null default 1 check (roster_flex between 0 and 4),
+  roster_dst    integer not null default 1 check (roster_dst between 0 and 2),
+  roster_k      integer not null default 1 check (roster_k between 0 and 2),
+  roster_bench  integer not null default 6 check (roster_bench between 0 and 12),
   is_public     boolean not null default false,
   invite_code   text not null unique default substr(md5(random()::text), 1, 8),
   status        text not null default 'waiting' check (status in ('waiting','in_progress','completed')),
@@ -1005,10 +1073,18 @@ $$;
 create or replace function public.create_mock_draft_room(
   p_name text,
   p_team_count integer,
-  p_rounds integer,
   p_pick_seconds integer,
   p_draft_type text,
-  p_is_public boolean
+  p_is_public boolean,
+  p_scoring_format text default 'ppr',
+  p_roster_qb integer default 1,
+  p_roster_rb integer default 2,
+  p_roster_wr integer default 2,
+  p_roster_te integer default 1,
+  p_roster_flex integer default 1,
+  p_roster_dst integer default 1,
+  p_roster_k integer default 1,
+  p_roster_bench integer default 6
 )
 returns uuid
 language plpgsql security definer set search_path = public
@@ -1018,25 +1094,40 @@ declare
   new_room_id uuid;
   host_label text;
   i integer;
+  total_rounds integer;
 begin
   if uid is null then
     raise exception 'not authenticated';
   end if;
-  if p_team_count is null or p_team_count < 4 or p_team_count > 14 then
-    raise exception 'team_count must be between 4 and 14';
-  end if;
-  if p_rounds is null or p_rounds < 1 or p_rounds > 20 then
-    raise exception 'rounds must be between 1 and 20';
+  if p_team_count is null or p_team_count not in (6, 8, 10, 12, 14, 16) then
+    raise exception 'team_count must be one of 6, 8, 10, 12, 14, 16';
   end if;
   if p_draft_type not in ('snake', 'linear') then
     raise exception 'invalid draft_type: %', p_draft_type;
   end if;
+  if p_scoring_format not in ('ppr', 'half_ppr', 'tep', 'superflex') then
+    raise exception 'invalid scoring_format: %', p_scoring_format;
+  end if;
+
+  total_rounds := coalesce(p_roster_qb, 0) + coalesce(p_roster_rb, 0) + coalesce(p_roster_wr, 0)
+    + coalesce(p_roster_te, 0) + coalesce(p_roster_flex, 0) + coalesce(p_roster_dst, 0)
+    + coalesce(p_roster_k, 0) + coalesce(p_roster_bench, 0);
+  if total_rounds < 1 or total_rounds > 30 then
+    raise exception 'roster construction must total between 1 and 30 rounds';
+  end if;
 
   select coalesce(display_name, username) into host_label from public.profiles where id = uid;
 
-  insert into public.mock_draft_rooms (host_id, name, team_count, rounds, pick_seconds, draft_type, is_public)
-  values (uid, coalesce(nullif(trim(p_name), ''), host_label || '''s Mock Draft'), p_team_count, p_rounds,
-          greatest(15, least(300, coalesce(p_pick_seconds, 60))), p_draft_type, coalesce(p_is_public, false))
+  insert into public.mock_draft_rooms (
+    host_id, name, team_count, rounds, pick_seconds, draft_type, is_public, scoring_format,
+    roster_qb, roster_rb, roster_wr, roster_te, roster_flex, roster_dst, roster_k, roster_bench
+  )
+  values (
+    uid, coalesce(nullif(trim(p_name), ''), host_label || '''s Mock Draft'), p_team_count, total_rounds,
+    greatest(15, least(300, coalesce(p_pick_seconds, 60))), p_draft_type, coalesce(p_is_public, false), p_scoring_format,
+    coalesce(p_roster_qb, 1), coalesce(p_roster_rb, 2), coalesce(p_roster_wr, 2), coalesce(p_roster_te, 1),
+    coalesce(p_roster_flex, 1), coalesce(p_roster_dst, 1), coalesce(p_roster_k, 1), coalesce(p_roster_bench, 6)
+  )
   returning id into new_room_id;
 
   for i in 1..p_team_count loop
@@ -1052,7 +1143,7 @@ begin
 end;
 $$;
 
-grant execute on function public.create_mock_draft_room(text, integer, integer, integer, text, boolean) to authenticated;
+grant execute on function public.create_mock_draft_room(text, integer, integer, text, boolean, text, integer, integer, integer, integer, integer, integer, integer, integer) to authenticated;
 
 create or replace function public.join_mock_draft_room(p_room_id uuid, p_invite_code text, p_slot_index integer default null)
 returns integer

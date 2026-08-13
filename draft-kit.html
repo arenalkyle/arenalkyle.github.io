@@ -67,15 +67,6 @@
 .dk-ppg{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-dim); width: 56px; text-align:right; flex-shrink:0; }
 
 .dk-list.hide-drafted .dk-row.drafted{ display:none; }
-
-@media print{
-  .sidebar, .topbar, .dk-controls, .category-pills, .dk-count, .page-head p{ display:none !important; }
-  body, .app-shell, .main-area{ background: #fff !important; }
-  .wrap{ max-width:none; padding: 0; overflow:visible; }
-  .dk-row{ background:#fff; border-color:#ccc; break-inside: avoid; }
-  .dk-name, .tier-head .label, .page-head h1{ color:#111 !important; }
-  .avatar-wrap{ display:none; }
-}
 </style>
 </head>
 <body>
@@ -100,7 +91,6 @@
         </select>
         <label class="dk-toggle"><input type="checkbox" id="dkHideDrafted"> Hide drafted</label>
         <button class="dk-btn" id="dkReset">Reset Board</button>
-        <button class="dk-btn primary" id="dkPrint">Print</button>
       </div>
 
       <div class="category-pills" id="categoryPills"></div>
@@ -130,7 +120,6 @@
     sort: document.getElementById('dkSort'),
     hideDrafted: document.getElementById('dkHideDrafted'),
     reset: document.getElementById('dkReset'),
-    print: document.getElementById('dkPrint'),
     pills: document.getElementById('categoryPills'),
     count: document.getElementById('dkCount'),
     groups: document.getElementById('dkGroups')
@@ -277,7 +266,6 @@
   els.search.addEventListener('input', render);
   els.sort.addEventListener('change', render);
   els.hideDrafted.addEventListener('change', render);
-  els.print.addEventListener('click', function(){ window.print(); });
   els.reset.addEventListener('click', function(){
     if (!confirm('Clear every player marked as drafted?')) return;
     drafted = new Set();

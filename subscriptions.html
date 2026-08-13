@@ -7,43 +7,76 @@
 <link rel="stylesheet" href="css/theme.css">
 <style>
 .wrap{
-  flex: 1 1 auto; min-height: 0; padding: 18px 24px 32px; max-width: 1100px; width: 100%; margin: 0 auto;
+  flex: 1 1 auto; min-height: 0; padding: 18px 24px 32px; max-width: none; width: 80%; margin: 0 auto;
   display: flex; flex-direction: column; overflow-y: auto;
 }
 .page-head{ margin-bottom: 18px; }
 .page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
 .page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
 
-.plan-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-@media (max-width: 900px){ .plan-grid{ grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 520px){ .plan-grid{ grid-template-columns: 1fr; } }
+.plan-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+@media (max-width: 1100px){ .plan-grid{ grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px){ .plan-grid{ grid-template-columns: 1fr; } }
 
 .plan-card{
-  background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px;
-  display:flex; flex-direction:column;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 32px 28px;
+  display:flex; flex-direction:column; min-height: 420px; cursor: pointer; transition: border-color .12s ease, transform .12s ease;
 }
+.plan-card:hover{ border-color: var(--brass-dim); transform: translateY(-2px); }
 .plan-card.current{ border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass); }
 .plan-card.featured{ border-color: var(--brass-dim); }
-.plan-name{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 17px; color: var(--text); margin: 0 0 2px; }
-.plan-price{ font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--brass); margin-bottom: 14px; }
-.plan-price .per{ color: var(--text-mute); font-size: 11px; }
-.plan-perks{ list-style:none; padding:0; margin: 0 0 18px; flex: 1 1 auto; }
+.plan-name{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; color: var(--text); margin: 0 0 4px; }
+.plan-price{ font-family: 'JetBrains Mono', monospace; font-size: 22px; color: var(--brass); margin-bottom: 4px; }
+.plan-price .per{ color: var(--text-mute); font-size: 13px; }
+.plan-price-yearly{ font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-mute); margin-bottom: 18px; }
+.plan-price-yearly strong{ color: var(--brass-dim); }
+.plan-perks{ list-style:none; padding:0; margin: 0 0 22px; flex: 1 1 auto; }
 .plan-perks li{
-  font-size: 12.5px; color: var(--text-dim); padding: 7px 0 7px 20px; position:relative; line-height: 1.4;
+  font-size: 13.5px; color: var(--text-dim); padding: 9px 0 9px 22px; position:relative; line-height: 1.45;
   border-bottom: 1px solid var(--border-soft);
 }
 .plan-perks li:last-child{ border-bottom:none; }
 .plan-perks li::before{ content:"\2713"; position:absolute; left:0; color: var(--brass); font-weight:700; }
 .plan-btn{
   background: var(--brass); border: 1px solid var(--brass); color: #241209; font-weight: 700;
-  font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 10px; border-radius: 8px; cursor: pointer;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 13px; border-radius: 8px; cursor: pointer;
 }
 .plan-btn:hover{ filter: brightness(1.08); }
 .plan-btn:disabled{ opacity: 0.6; cursor: default; }
 .plan-btn.current-btn{ background: var(--panel-alt); border-color: var(--border); color: var(--text-mute); }
+.plan-more{ text-align:center; font-size: 11px; color: var(--text-mute); margin-top: 10px; font-family:'JetBrains Mono', monospace; }
 
 .plan-status{ text-align:center; font-size: 12px; color: var(--text-mute); margin-top: 16px; min-height: 16px; }
 .plan-status.error{ color: var(--danger); }
+
+/* ---------- Plan detail modal ---------- */
+.modal-box.plan-modal{ max-width: 620px; text-align:left; max-height: 88vh; overflow-y:auto; }
+.modal-box.plan-modal .modal-title{ text-align:left; margin: 0 0 4px; }
+.plan-modal-price-row{ display:flex; align-items:baseline; gap: 14px; margin: 10px 0 6px; flex-wrap:wrap; }
+.plan-modal-price{ font-family: 'JetBrains Mono', monospace; font-size: 26px; color: var(--brass); }
+.plan-modal-price .per{ font-size: 13px; color: var(--text-mute); }
+.plan-modal-yearly{ font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--text-mute); }
+.plan-modal-yearly strong{ color: var(--brass-dim); }
+.plan-modal-desc{ font-size: 13.5px; color: var(--text-dim); line-height: 1.6; margin: 14px 0 20px; }
+.plan-modal-section-label{
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-mute); margin: 0 0 10px;
+}
+.plan-modal-perks{ list-style:none; padding:0; margin: 0 0 22px; }
+.plan-modal-perks li{
+  font-size: 13.5px; color: var(--text-dim); padding: 8px 0 8px 22px; position:relative; line-height: 1.45;
+  border-bottom: 1px solid var(--border-soft);
+}
+.plan-modal-perks li:last-child{ border-bottom:none; }
+.plan-modal-perks li::before{ content:"\2713"; position:absolute; left:0; color: var(--brass); font-weight:700; }
+.plan-modal-snap-grid{ display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+@media (max-width: 480px){ .plan-modal-snap-grid{ grid-template-columns: repeat(2, 1fr); } }
+.plan-modal-snap{
+  background: var(--panel-alt); border: 1px solid var(--border-soft); border-radius: 10px; padding: 14px 10px;
+  display:flex; flex-direction:column; align-items:center; gap: 8px; text-align:center;
+}
+.plan-modal-snap svg{ width: 22px; height: 22px; stroke: var(--brass); flex-shrink:0; }
+.plan-modal-snap span{ font-size: 10.5px; color: var(--text-mute); line-height: 1.3; }
 </style>
 </head>
 <body>
@@ -65,6 +98,23 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="planModal">
+  <div class="modal-box plan-modal" id="planModalBox">
+    <button class="modal-close" id="planModalClose" aria-label="Close">&times;</button>
+    <h2 class="modal-title" id="planModalName"></h2>
+    <div class="plan-modal-price-row">
+      <div class="plan-modal-price" id="planModalPrice"></div>
+      <div class="plan-modal-yearly" id="planModalYearly"></div>
+    </div>
+    <div class="plan-modal-desc" id="planModalDesc"></div>
+    <div class="plan-modal-section-label">What's included</div>
+    <ul class="plan-modal-perks" id="planModalPerks"></ul>
+    <div class="plan-modal-section-label">A look at what you get access to</div>
+    <div class="plan-modal-snap-grid" id="planModalSnaps"></div>
+    <button class="plan-btn" id="planModalBtn"></button>
+  </div>
+</div>
+
 <script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="js/config.js"></script>
 <script src="js/supabase-client.js"></script>
@@ -76,50 +126,110 @@
   // (free/premium/elite/legendary) are unchanged -- they're baked into
   // the DB check constraints and RLS in supabase/schema.sql, so only
   // the label shown to users changes here.
+  var SNAP_ICONS = {
+    rankings: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>',
+    leagues: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
+    startsit: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>',
+    trade: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3 21 7l-4 4"></path><path d="M21 7H9a4 4 0 0 0-4 4"></path><path d="M7 21 3 17l4-4"></path><path d="M3 17h12a4 4 0 0 0 4-4"></path></svg>',
+    team: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v6c0 5 3.8 8.7 9 9 5.2-.3 9-4 9-9V7l-9-5z"></path></svg>',
+    posts: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"></rect><line x1="7" y1="9" x2="17" y2="9"></line><line x1="7" y1="13" x2="13" y2="13"></line></svg>',
+    comment: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>'
+  };
+
+  function yearlyFor(monthly){
+    if (!monthly) return 0;
+    return Math.round(monthly * 12 * 0.8);
+  }
+
   var PLANS = [
     {
-      tier: 'free', name: 'Rookie', price: '$0', per: '',
-      perks: ['Supports 3 leagues', '1 Start/Sit question per month']
+      tier: 'free', name: 'Rookie', priceNum: 0, price: '$0', per: '',
+      desc: 'Get a feel for The Board with core tools and a single free question a month — no card required.',
+      perks: ['Supports 3 leagues', '1 Start/Sit question per month'],
+      snaps: [
+        { icon: 'rankings', label: 'Rankings board' },
+        { icon: 'leagues', label: '3 leagues synced' },
+        { icon: 'startsit', label: '1 Start/Sit / mo' }
+      ]
     },
     {
-      tier: 'premium', name: 'Pro Bowl', price: '$7.50', per: '/mo',
+      tier: 'premium', name: 'Pro Bowl', priceNum: 7.5, price: '$7.50', per: '/mo',
+      desc: 'For the manager running a few leagues who wants weekly access to a real opinion, not just projections.',
       perks: [
         'Supports 10 leagues',
         '1x Start/Sit question per week (Free)',
         '1x Trade Analysis per week (Free)',
         '1x Team Analysis per month (Free)',
         'Access to all posts'
+      ],
+      snaps: [
+        { icon: 'leagues', label: '10 leagues synced' },
+        { icon: 'startsit', label: 'Weekly Start/Sit' },
+        { icon: 'trade', label: 'Weekly Trade review' },
+        { icon: 'team', label: 'Monthly Team review' },
+        { icon: 'posts', label: 'All posts unlocked' }
       ]
     },
     {
-      tier: 'elite', name: 'MVP', price: '$15', per: '/mo', featured: true,
+      tier: 'elite', name: 'MVP', priceNum: 15, price: '$15', per: '/mo', featured: true,
+      desc: 'For the multi-league grinder who wants faster turnaround and more free reviews every single week.',
       perks: [
         'Supports 15 leagues',
         '2x Start/Sit questions per week (Free)',
         '2x Trade Analysis per week (Free)',
         '2x Team Analysis per week (Free)',
         'Access to all posts & commenting'
+      ],
+      snaps: [
+        { icon: 'leagues', label: '15 leagues synced' },
+        { icon: 'startsit', label: '2x Start/Sit / wk' },
+        { icon: 'trade', label: '2x Trade review / wk' },
+        { icon: 'team', label: '2x Team review / wk' },
+        { icon: 'comment', label: 'Commenting unlocked' }
       ]
     },
     {
-      tier: 'legendary', name: 'Hall of Fame', price: '$25', per: '/mo',
+      tier: 'legendary', name: 'Hall of Fame', priceNum: 25, price: '$25', per: '/mo',
+      desc: 'The all-in tier for commissioners and league-of-leagues managers who want the most free expert time available.',
       perks: [
         'Supports 25 leagues',
         '4x Start/Sit questions per week (Free)',
         '4x Trade Analysis per week (Free)',
         '3x Team Analysis per week (Free)',
         'Access to all posts & commenting'
+      ],
+      snaps: [
+        { icon: 'leagues', label: '25 leagues synced' },
+        { icon: 'startsit', label: '4x Start/Sit / wk' },
+        { icon: 'trade', label: '4x Trade review / wk' },
+        { icon: 'team', label: '3x Team review / wk' },
+        { icon: 'comment', label: 'Commenting unlocked' }
       ]
     }
   ];
 
   var els = {
     grid: document.getElementById('planGrid'),
-    status: document.getElementById('planStatus')
+    status: document.getElementById('planStatus'),
+    planModal: document.getElementById('planModal'),
+    planModalClose: document.getElementById('planModalClose'),
+    planModalName: document.getElementById('planModalName'),
+    planModalPrice: document.getElementById('planModalPrice'),
+    planModalYearly: document.getElementById('planModalYearly'),
+    planModalDesc: document.getElementById('planModalDesc'),
+    planModalPerks: document.getElementById('planModalPerks'),
+    planModalSnaps: document.getElementById('planModalSnaps'),
+    planModalBtn: document.getElementById('planModalBtn')
   };
 
   function currentTier(){
     return (window.Auth && window.Auth.profile && window.Auth.profile.subscription_tier) || 'free';
+  }
+
+  function planBtnLabel(plan, isCurrent){
+    if (isCurrent) return 'Current Plan';
+    if (!window.Auth || !window.Auth.user) return 'Log In to Subscribe';
+    return plan.tier === 'free' ? 'Downgrade to Free' : 'Choose This Plan';
   }
 
   function render(){
@@ -130,28 +240,61 @@
       var card = document.createElement('div');
       card.className = 'plan-card' + (isCurrent ? ' current' : '') + (plan.featured ? ' featured' : '');
 
+      var yearly = yearlyFor(plan.priceNum);
       var perksHtml = plan.perks.map(function(p){ return '<li>' + p + '</li>'; }).join('');
       card.innerHTML =
         '<h3 class="plan-name">' + plan.name + '</h3>' +
         '<div class="plan-price">' + plan.price + '<span class="per">' + plan.per + '</span></div>' +
+        (plan.priceNum ? '<div class="plan-price-yearly">or <strong>$' + yearly + '/yr</strong> (save 20%)</div>' : '<div class="plan-price-yearly">&nbsp;</div>') +
         '<ul class="plan-perks">' + perksHtml + '</ul>';
 
       var btn = document.createElement('button');
       btn.className = 'plan-btn' + (isCurrent ? ' current-btn' : '');
-      if (isCurrent){
-        btn.textContent = 'Current Plan';
-        btn.disabled = true;
-      } else if (!window.Auth || !window.Auth.user){
-        btn.textContent = 'Log In to Subscribe';
-        btn.addEventListener('click', function(){ window.Auth.openLogin(); });
-      } else {
-        btn.textContent = plan.tier === 'free' ? 'Downgrade to Free' : 'Choose This Plan';
-        btn.addEventListener('click', function(){ choosePlan(plan.tier, btn); });
-      }
+      btn.textContent = planBtnLabel(plan, isCurrent);
+      btn.disabled = isCurrent;
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        if (isCurrent) return;
+        if (!window.Auth || !window.Auth.user){ window.Auth.openLogin(); return; }
+        choosePlan(plan.tier, btn);
+      });
       card.appendChild(btn);
+
+      var more = document.createElement('div');
+      more.className = 'plan-more';
+      more.textContent = 'Click for full details →';
+      card.appendChild(more);
+
+      card.addEventListener('click', function(){ openPlanModal(plan, isCurrent); });
       els.grid.appendChild(card);
     });
   }
+
+  function openPlanModal(plan, isCurrent){
+    var yearly = yearlyFor(plan.priceNum);
+    els.planModalName.textContent = plan.name;
+    els.planModalPrice.innerHTML = plan.price + '<span class="per">' + plan.per + '</span>';
+    els.planModalYearly.innerHTML = plan.priceNum ? 'or <strong>$' + yearly + '/yr</strong> — save 20% vs. paying monthly' : '';
+    els.planModalDesc.textContent = plan.desc;
+    els.planModalPerks.innerHTML = plan.perks.map(function(p){ return '<li>' + p + '</li>'; }).join('');
+    els.planModalSnaps.innerHTML = plan.snaps.map(function(s){
+      return '<div class="plan-modal-snap">' + SNAP_ICONS[s.icon] + '<span>' + s.label + '</span></div>';
+    }).join('');
+
+    els.planModalBtn.textContent = planBtnLabel(plan, isCurrent);
+    els.planModalBtn.disabled = isCurrent;
+    els.planModalBtn.className = 'plan-btn' + (isCurrent ? ' current-btn' : '');
+    els.planModalBtn.onclick = function(){
+      if (isCurrent) return;
+      if (!window.Auth || !window.Auth.user){ closePlanModal(); window.Auth.openLogin(); return; }
+      choosePlan(plan.tier, els.planModalBtn);
+    };
+
+    els.planModal.classList.add('open');
+  }
+  function closePlanModal(){ els.planModal.classList.remove('open'); }
+  els.planModalClose.addEventListener('click', closePlanModal);
+  els.planModal.addEventListener('click', function(e){ if (e.target === els.planModal) closePlanModal(); });
 
   function choosePlan(tier, btn){
     els.status.textContent = '';
@@ -170,6 +313,7 @@
       // STUB: no Stripe integration yet -- a real subscription would
       // redirect to Stripe Checkout here instead of applying instantly.
       els.status.textContent = 'Payment isn’t wired up yet, so nothing was charged — your plan has been updated.';
+      closePlanModal();
       return window.Auth.refreshProfile().then(render);
     });
   }

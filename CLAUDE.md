@@ -46,7 +46,13 @@ Consequences that matter when editing:
 ## Directory map
 
 ```
-index.html                 Rankings board ("Redraft Rankings") — the home page.
+index.html                 Public-facing landing page (Kyle's bio, pulled live from `profiles` where
+                               username='kyle', plus CTAs into Rankings/Subscriptions/Expert Reviews). This
+                               is the site's home page (served at the GitHub Pages root) and is what the
+                               "The Board" logo in the sidebar links to — it is intentionally NOT in the
+                               sidebar nav list itself.
+rankings.html               Rankings board ("Redraft Rankings") — formerly index.html; linked from the
+                               sidebar as "Rankings" and from index.html's "See the Rankings" CTA.
 rankings-editor.html        Create/Edit Rankings — drag-to-reorder personal ranking editor.
 my-teams.html                Link Sleeper/ESPN leagues, view standings + rosters.
 trade-analyzer.html          FantasyCalc-powered trade value comparison + public recent-trades feed.
@@ -57,9 +63,7 @@ notifications.html           Full notifications inbox (see below).
 subscriptions.html           Plan picker (Rookie/Pro Bowl/MVP/Hall of Fame — see "Subscriptions" below).
 profile.html                 Edit your own profile (avatar URL, username, display name, favorite team).
 admin.html                   Admin-only: user list + role assignment, role→permission policy matrix.
-about.html                    Public-facing landing/marketing page (Kyle's bio, pulled live from `profiles`
-                               where username='kyle', plus CTAs into Rankings/Subscriptions/Expert Reviews).
-draft-kit.html                 Printable/checkable cheat sheet built from existing rankings data (tier-grouped,
+draft-kit.html                 Checkable cheat sheet built from existing rankings data (tier-grouped,
                                position-filterable, click-to-mark-drafted, persisted in localStorage).
 mock-draft.html                Mock draft lobby: create a room, browse/join public rooms, join by invite code.
 mock-draft-room.html           A single mock draft room: waiting room (slots, bot-fill, start), the live
@@ -99,6 +103,10 @@ supabase/functions/login/      Edge Function: real password sign-in path (IP loc
 supabase/functions/espn-proxy/ Edge Function: proxies ESPN's fantasy API so private-league cookies
                                 (espn_s2/SWID) can be sent — browsers won't let JS set a Cookie header.
 supabase/seed_kyle_wesley.sql  One-time seed script for migrating Kyle/Wesley's existing rankings + roles.
+supabase/migrate_mock_draft_roster_config.sql
+                                One-time migration adding scoring_format/roster_* to an already-live
+                                mock_draft_rooms table -- see "Mock Drafts" below for why this couldn't
+                                just be folded into schema.sql's CREATE TABLE.
 
 SETUP.md                       Step-by-step first-time backend setup (Supabase project, edge functions,
                                 Google OAuth, Turnstile, bootstrapping the first Admin). Start here for
@@ -168,7 +176,12 @@ ROADMAP.md                     Scoped-but-not-built plans: wiring up real Stripe
   (draft/published) can only be flipped by `publish_posts` permission,
   enforced by a trigger, not just RLS.
 - `player_notes` — free-text note per player, shown in the player
-  detail modal, editable by `edit_player_notes`.
+  detail modal, editable by `edit_player_notes`. Only shown to viewers
+  at all once a note actually exists (empty/never-edited players show
+  nothing). Every insert/update is mirrored into `player_notes_log`
+  (append-only, written by a trigger, not the client) so the modal can
+  show a running edit history — see the "has not been run against the
+  live project yet" comment above that table in `schema.sql`.
 - `login_attempts` — backs the login edge function's IP lockout; no
   RLS policies at all on purpose (only the service-role edge function
   touches it).
@@ -256,10 +269,12 @@ bell's unread dot stays in sync across pages.
 
 Multiple concurrent draft rooms (`mock_draft_rooms`/`mock_draft_slots`/
 `mock_draft_picks` in `schema.sql`), each with real users and/or bots
-filling `team_count` slots, drafting in snake or linear order on a
-per-pick timer. Public rooms are listed in `mock-draft.html`'s lobby;
-private rooms are joinable only via their `invite_code`. All writes go
-through RPCs (`create_mock_draft_room`, `join_mock_draft_room`,
+filling `team_count` slots (fixed to 6/8/10/12/14/16 by a check
+constraint), drafting in snake or linear order on a per-pick timer.
+Public rooms are listed in `mock-draft.html`'s lobby (in their own
+column, next to a "Your Rooms" column); private rooms are joinable
+only via their `invite_code`. All writes go through RPCs
+(`create_mock_draft_room`, `join_mock_draft_room`,
 `leave_mock_draft_room`, `set_mock_draft_slot_bot`, `start_mock_draft`,
 `mock_draft_make_pick`) — see the block comment above that schema
 section for the full design, and note this important asymmetry:
@@ -272,12 +287,37 @@ subscribes to all three tables via Supabase Realtime
 (`postgres_changes`, filtered by `room_id`) so every connected client
 sees picks/joins instantly.
 
-**This SQL has not been run against the live project yet** — it was
-appended to the end of `schema.sql` but re-running that whole file
-would error on every table that already exists. Whoever picks this up
-needs to copy just the new "Mock Drafts" section from `schema.sql`
-into the Supabase SQL editor and run it once, same as any other schema
-change described in SETUP.md.
+A room also carries a `scoring_format` (ppr/half_ppr/tep/superflex)
+and a roster construction (`roster_qb`/`roster_rb`/`roster_wr`/
+`roster_te`/`roster_flex`/`roster_dst`/`roster_k`/`roster_bench`) set
+at creation instead of a free-choice "Rounds" field — `rounds` is
+always the sum of those, computed server-side in
+`create_mock_draft_room`. There's no per-format point-projection data
+in `js/players-data.js`, so `mock-draft-room.html`'s
+`formatAdjustedRank()` nudges the existing kyle/wesley consensus rank
+with a heuristic per-position multiplier per format rather than a true
+recompute — documented as a known simplification in that function's
+comment, not a bug. The waiting room has no host-only "Fill w/ Bot"
+control: `start_mock_draft()` auto-fills any still-empty seats as bots
+the moment the draft starts, and any open (non-bot) slot can be
+clicked directly to claim it, including switching to a different open
+slot after you've already joined one (leave + join in sequence,
+client-side). The live view's draft board is the main visual (center,
+widest column); the player pool is a narrow, compact column on the
+left, and the signed-in user's own team is a roster-shaped panel
+(starters grouped by position slot, then bench) that's always visible
+on the right rather than tucked behind a tab.
+
+**The Mock Drafts section of `schema.sql` is already live** on the
+project — despite older notes in this file, its `CREATE TABLE`
+statements will error with "already exists" if run again as-is.
+`schema.sql`'s DDL there reflects the current desired schema (useful
+for a fresh install), but any change to an already-live table/function
+signature has to ship as its own `ALTER`/`DROP FUNCTION`+`CREATE`
+script — see `supabase/migrate_mock_draft_roster_config.sql` for the
+one that added `scoring_format`/`roster_*` and the tightened
+`team_count` check. Run one-off scripts like that once in the Supabase
+SQL editor, same as any other schema change described in SETUP.md.
 
 ## Not yet implemented (stubbed)
 

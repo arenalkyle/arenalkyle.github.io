@@ -13,11 +13,20 @@
     crown: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16l1.4-8.5-4.9 3-3.5-6-3.5 6-4.9-3L4 18z"></path></svg>',
     clipboard: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"></rect><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"></path><line x1="8" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="13" y2="15"></line></svg>',
     mic: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>',
-    info: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
+    chevron: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>'
   };
 
+  var COLLAPSE_KEY = 'ff_sidebar_collapsed_v1';
+  function isCollapsed() {
+    try { return localStorage.getItem(COLLAPSE_KEY) === '1'; } catch (e) { return false; }
+  }
+  function setCollapsed(v) {
+    try { localStorage.setItem(COLLAPSE_KEY, v ? '1' : '0'); } catch (e) {}
+  }
+
   var LINKS = [
-    { href: 'index.html', label: 'Rankings', icon: ICONS.board },
+    { href: 'rankings.html', label: 'Rankings', icon: ICONS.board },
     { href: 'rankings-editor.html', label: 'Create/Edit Rankings', icon: ICONS.edit },
     { href: 'draft-kit.html', label: 'Draft Kit', icon: ICONS.clipboard },
     { href: 'mock-draft.html', label: 'Mock Draft', icon: ICONS.mic },
@@ -25,8 +34,7 @@
     { href: 'trade-analyzer.html', label: 'Trade Analyzer', icon: ICONS.swap },
     { href: 'expert-reviews.html', label: 'Expert Reviews', icon: ICONS.star },
     { href: 'posts.html', label: 'Posts', icon: ICONS.posts },
-    { href: 'subscriptions.html', label: 'Subscriptions', icon: ICONS.crown },
-    { href: 'about.html', label: 'About', icon: ICONS.info }
+    { href: 'subscriptions.html', label: 'Subscriptions', icon: ICONS.crown }
   ];
 
   function currentPage() {
@@ -38,21 +46,28 @@
     var el = document.getElementById('sidebar');
     if (!el) return;
     var page = currentPage();
-    var html = '<div class="sidebar-brand">The Board</div>';
+    el.classList.toggle('collapsed', isCollapsed());
+    var html = '<button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">' + ICONS.chevron + '</button>';
+    html += '<a class="sidebar-brand" href="index.html"><span>The Board</span></a>';
     html += '<div class="sidebar-section-label">Menu</div>';
     LINKS.forEach(function (link) {
-      html += '<a class="sidebar-link' + (page === link.href ? ' active' : '') + '" href="' + link.href + '">' + link.icon + '<span>' + link.label + '</span></a>';
+      html += '<a class="sidebar-link' + (page === link.href ? ' active' : '') + '" href="' + link.href + '" title="' + link.label + '">' + link.icon + '<span>' + link.label + '</span></a>';
     });
     if (window.Auth && (window.Auth.can('view_admin_panel') || window.Auth.can('manage_expert_reviews'))) {
       html += '<div class="sidebar-section-label">Admin</div>';
       if (window.Auth.can('view_admin_panel')) {
-        html += '<a class="sidebar-link' + (page === 'admin.html' ? ' active' : '') + '" href="admin.html">' + ICONS.admin + '<span>Admin Panel</span></a>';
+        html += '<a class="sidebar-link' + (page === 'admin.html' ? ' active' : '') + '" href="admin.html" title="Admin Panel">' + ICONS.admin + '<span>Admin Panel</span></a>';
       }
       if (window.Auth.can('manage_expert_reviews')) {
-        html += '<a class="sidebar-link' + (page === 'expert-reviews-log.html' ? ' active' : '') + '" href="expert-reviews-log.html">' + ICONS.log + '<span>Review Log</span></a>';
+        html += '<a class="sidebar-link' + (page === 'expert-reviews-log.html' ? ' active' : '') + '" href="expert-reviews-log.html" title="Review Log">' + ICONS.log + '<span>Review Log</span></a>';
       }
     }
     el.innerHTML = html;
+    document.getElementById('sidebarToggle').addEventListener('click', function () {
+      var collapsed = !el.classList.contains('collapsed');
+      el.classList.toggle('collapsed', collapsed);
+      setCollapsed(collapsed);
+    });
   }
 
   render();

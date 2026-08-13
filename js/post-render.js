@@ -44,13 +44,14 @@
     var p = findPlayer(name);
     if (!p) return '<div class="pc-card pc-missing">Player not found: ' + escapeHtml(name) + '</div>';
     var pos = p.pos === 'DST' ? 'D/ST' : p.pos;
+    var posColor = window.PlayerRender ? window.PlayerRender.posColor(p.pos) : 'inherit';
     var ppg = p.ppg25 || 0;
     return '' +
       '<div class="pc-card" data-player-key="' + escapeHtml(window.playerKey(p)) + '">' +
         '<div class="pc-avatar-slot" data-player-name="' + escapeHtml(p.name) + '"></div>' +
         '<div class="pc-info">' +
           '<div class="pc-name">' + escapeHtml(p.name) + '</div>' +
-          '<div class="pc-meta">' + escapeHtml(pos) + ' &middot; ' + escapeHtml(p.team) + (ppg > 0 ? ' &middot; ' + ppg.toFixed(1) + ' PPG' : '') + '</div>' +
+          '<div class="pc-meta"><span style="color:' + posColor + ';font-weight:700">' + escapeHtml(pos) + '</span> &middot; ' + escapeHtml(p.team) + (ppg > 0 ? ' &middot; ' + ppg.toFixed(1) + ' PPG' : '') + '</div>' +
         '</div>' +
       '</div>';
   }

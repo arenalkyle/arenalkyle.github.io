@@ -14,14 +14,30 @@
 .page-head h1{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 22px; margin: 0 0 4px; color: var(--text); }
 .page-head p{ font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--text-mute); margin: 0; }
 
-.md-layout{ display:grid; grid-template-columns: 340px 1fr; gap: 20px; align-items:start; }
-@media (max-width: 800px){ .md-layout{ grid-template-columns: 1fr; } }
+.md-layout{ display:grid; grid-template-columns: 360px 1fr; gap: 20px; align-items:start; }
+@media (max-width: 860px){ .md-layout{ grid-template-columns: 1fr; } }
 
 .panel{ background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .panel h2{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 16px; color: var(--text); margin: 0 0 14px; }
 
 .md-row{ display:flex; gap: 10px; }
 .md-row .modal-field{ flex: 1 1 0; }
+
+.roster-grid{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 4px; }
+.roster-field label{
+  display:block; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-mute); margin-bottom: 4px;
+}
+.roster-field input{
+  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 7px;
+  padding: 7px 8px; color: var(--text); font-size: 12.5px; outline:none; text-align:center;
+}
+.roster-field input:focus{ border-color: var(--brass); }
+.roster-total{ font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-mute); margin: 8px 0 14px; }
+.roster-total strong{ color: var(--brass-bright); }
+
+.room-columns{ display:grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items:start; }
+@media (max-width: 700px){ .room-columns{ grid-template-columns: 1fr; } }
 
 .join-code-row{ display:flex; gap: 8px; margin-top: 4px; }
 .join-code-row input{
@@ -91,12 +107,6 @@
                   <select id="fTeamCount"></select>
                 </div>
                 <div class="modal-field">
-                  <label>Rounds</label>
-                  <select id="fRounds"></select>
-                </div>
-              </div>
-              <div class="md-row">
-                <div class="modal-field">
                   <label>Pick Timer</label>
                   <select id="fPickSeconds">
                     <option value="30">30 sec</option>
@@ -106,14 +116,39 @@
                     <option value="120">2 min</option>
                   </select>
                 </div>
+              </div>
+              <div class="md-row">
                 <div class="modal-field">
-                  <label>Draft Type</label>
+                  <label>Pick Order</label>
                   <select id="fDraftType">
                     <option value="snake" selected>Snake</option>
                     <option value="linear">Linear</option>
                   </select>
                 </div>
+                <div class="modal-field">
+                  <label>Draft Format</label>
+                  <select id="fScoringFormat">
+                    <option value="ppr" selected>PPR</option>
+                    <option value="half_ppr">Half-PPR</option>
+                    <option value="tep">TE Premium</option>
+                    <option value="superflex">Superflex</option>
+                  </select>
+                </div>
               </div>
+
+              <div class="modal-field"><label>Roster Construction</label></div>
+              <div class="roster-grid" style="margin-top:6px">
+                <div class="roster-field"><label>QB</label><input type="number" id="rQb" min="0" max="4" value="1"></div>
+                <div class="roster-field"><label>RB</label><input type="number" id="rRb" min="0" max="6" value="2"></div>
+                <div class="roster-field"><label>WR</label><input type="number" id="rWr" min="0" max="6" value="2"></div>
+                <div class="roster-field"><label>TE</label><input type="number" id="rTe" min="0" max="4" value="1"></div>
+                <div class="roster-field"><label>FLEX</label><input type="number" id="rFlex" min="0" max="4" value="1"></div>
+                <div class="roster-field"><label>D/ST</label><input type="number" id="rDst" min="0" max="2" value="1"></div>
+                <div class="roster-field"><label>K</label><input type="number" id="rK" min="0" max="2" value="1"></div>
+                <div class="roster-field"><label>Bench</label><input type="number" id="rBench" min="0" max="12" value="6"></div>
+              </div>
+              <div class="roster-total">Total roster size: <strong id="rosterTotal">15</strong> rounds</div>
+
               <label class="subscriber-toggle" style="margin-bottom:14px">
                 <input type="checkbox" id="fIsPublic">
                 List in the public lobby
@@ -133,12 +168,15 @@
           </div>
         </div>
 
-        <div>
-          <div class="section-label" id="myRoomsLabel" style="display:none">Your Rooms</div>
-          <div class="room-list" id="myRoomsList"></div>
-
-          <div class="section-label">Public Rooms</div>
-          <div class="room-list" id="publicRoomsList"></div>
+        <div class="room-columns">
+          <div>
+            <div class="section-label">Public Rooms</div>
+            <div class="room-list" id="publicRoomsList"></div>
+          </div>
+          <div>
+            <div class="section-label" id="myRoomsLabel" style="display:none">Your Rooms</div>
+            <div class="room-list" id="myRoomsList"></div>
+          </div>
         </div>
       </div>
 
@@ -158,10 +196,19 @@
     createForm: document.getElementById('createForm'),
     fName: document.getElementById('fName'),
     fTeamCount: document.getElementById('fTeamCount'),
-    fRounds: document.getElementById('fRounds'),
     fPickSeconds: document.getElementById('fPickSeconds'),
     fDraftType: document.getElementById('fDraftType'),
+    fScoringFormat: document.getElementById('fScoringFormat'),
     fIsPublic: document.getElementById('fIsPublic'),
+    rQb: document.getElementById('rQb'),
+    rRb: document.getElementById('rRb'),
+    rWr: document.getElementById('rWr'),
+    rTe: document.getElementById('rTe'),
+    rFlex: document.getElementById('rFlex'),
+    rDst: document.getElementById('rDst'),
+    rK: document.getElementById('rK'),
+    rBench: document.getElementById('rBench'),
+    rosterTotal: document.getElementById('rosterTotal'),
     createBtn: document.getElementById('createBtn'),
     createStatus: document.getElementById('createStatus'),
     joinCodeInput: document.getElementById('joinCodeInput'),
@@ -172,18 +219,24 @@
     publicRoomsList: document.getElementById('publicRoomsList')
   };
 
-  for (var t = 4; t <= 14; t++){
+  [6, 8, 10, 12, 14, 16].forEach(function(t){
     var opt = document.createElement('option');
     opt.value = t; opt.textContent = t + ' teams';
     if (t === 10) opt.selected = true;
     els.fTeamCount.appendChild(opt);
-  }
-  [10, 12, 15, 16, 18].forEach(function(r){
-    var opt = document.createElement('option');
-    opt.value = r; opt.textContent = r + ' rounds';
-    if (r === 15) opt.selected = true;
-    els.fRounds.appendChild(opt);
   });
+
+  var SCORING_LABELS = { ppr: 'PPR', half_ppr: 'Half-PPR', tep: 'TE Premium', superflex: 'Superflex' };
+
+  function rosterInputs(){
+    return [els.rQb, els.rRb, els.rWr, els.rTe, els.rFlex, els.rDst, els.rK, els.rBench];
+  }
+  function updateRosterTotal(){
+    var total = rosterInputs().reduce(function(sum, el){ return sum + (parseInt(el.value, 10) || 0); }, 0);
+    els.rosterTotal.textContent = total;
+  }
+  rosterInputs().forEach(function(el){ el.addEventListener('input', updateRosterTotal); });
+  updateRosterTotal();
 
   function fmtStatus(s){ return s === 'in_progress' ? 'Live' : (s === 'completed' ? 'Finished' : 'Open'); }
 
@@ -195,7 +248,7 @@
       '<div>' +
         '<div class="room-name">' + room.name + '</div>' +
         '<div class="room-meta">' + room.team_count + '-team · ' + room.rounds + ' rd · ' + room.draft_type +
-          ' · ' + counts.filled + '/' + counts.total + ' filled</div>' +
+          ' · ' + (SCORING_LABELS[room.scoring_format] || 'PPR') + ' · ' + counts.filled + '/' + counts.total + ' filled</div>' +
       '</div>' +
       '<span class="room-status-pill ' + room.status + '">' + fmtStatus(room.status) + '</span>';
 
@@ -260,12 +313,15 @@
           joinablePublic.forEach(function(r){ els.publicRoomsList.appendChild(roomCard(r, counts, false)); });
         }
 
+        els.myRoomsLabel.style.display = '';
         els.myRoomsList.innerHTML = '';
         if (myRooms.length){
-          els.myRoomsLabel.style.display = '';
           myRooms.forEach(function(r){ els.myRoomsList.appendChild(roomCard(r, counts, true)); });
         } else {
-          els.myRoomsLabel.style.display = 'none';
+          var emptyMine = document.createElement('div');
+          emptyMine.className = 'empty-state';
+          emptyMine.textContent = uid ? "You're not in any rooms yet." : 'Log in to see rooms you have joined or hosted.';
+          els.myRoomsList.appendChild(emptyMine);
         }
       });
     });
@@ -288,10 +344,18 @@
     window.sb.rpc('create_mock_draft_room', {
       p_name: els.fName.value.trim(),
       p_team_count: parseInt(els.fTeamCount.value, 10),
-      p_rounds: parseInt(els.fRounds.value, 10),
       p_pick_seconds: parseInt(els.fPickSeconds.value, 10),
       p_draft_type: els.fDraftType.value,
-      p_is_public: els.fIsPublic.checked
+      p_is_public: els.fIsPublic.checked,
+      p_scoring_format: els.fScoringFormat.value,
+      p_roster_qb: parseInt(els.rQb.value, 10) || 0,
+      p_roster_rb: parseInt(els.rRb.value, 10) || 0,
+      p_roster_wr: parseInt(els.rWr.value, 10) || 0,
+      p_roster_te: parseInt(els.rTe.value, 10) || 0,
+      p_roster_flex: parseInt(els.rFlex.value, 10) || 0,
+      p_roster_dst: parseInt(els.rDst.value, 10) || 0,
+      p_roster_k: parseInt(els.rK.value, 10) || 0,
+      p_roster_bench: parseInt(els.rBench.value, 10) || 0
     }).then(function(res){
       els.createBtn.disabled = false;
       els.createBtn.textContent = 'Create Room';

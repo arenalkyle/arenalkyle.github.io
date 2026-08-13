@@ -1,5 +1,5 @@
 // Shared player-row rendering helpers used by both the Rankings page
-// (index.html) and the Create/Edit Rankings page (rankings-editor.html),
+// (rankings.html) and the Create/Edit Rankings page (rankings-editor.html),
 // so the two can never visually drift apart: tiering, number formatting,
 // and ESPN headshot/team-logo resolution all live here once.
 (function () {
@@ -25,6 +25,18 @@
 
   function posLabel(pos) {
     return pos === 'DST' ? 'D/ST' : pos;
+  }
+
+  var POS_COLORS = {
+    QB: '#c9645a',
+    RB: '#7a9e4e',
+    WR: '#5b9bd5',
+    TE: '#c9a15a',
+    K: '#b07cc6',
+    DST: '#8a8a8a'
+  };
+  function posColor(pos) {
+    return POS_COLORS[pos] || 'var(--text-mute)';
   }
 
   function fmt(v, decimals) {
@@ -176,6 +188,8 @@
     TIERS: TIERS,
     tierFor: tierFor,
     posLabel: posLabel,
+    POS_COLORS: POS_COLORS,
+    posColor: posColor,
     fmt: fmt,
     fmtPoints: fmtPoints,
     normalizeName: normalizeName,
