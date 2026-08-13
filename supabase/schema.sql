@@ -951,11 +951,14 @@ insert into public.role_permissions (role, permission_key, allowed) values
 -- to run it again as-is. This file's DDL reflects the current desired
 -- schema (useful for a fresh install / reference), but any change to
 -- an already-live table or a function's argument list needs to ship
--- as its own ALTER/DROP+CREATE script instead, same as
--- supabase/migrate_mock_draft_roster_config.sql (the scoring_format +
--- roster_* columns, the tightened team_count check, and
--- create_mock_draft_room's new signature all arrived that way -- run
--- that file once against a database that already has this table).
+-- as its own ALTER/DROP+CREATE script instead -- see:
+--   supabase/migrate_mock_draft_roster_config.sql (scoring_format +
+--     roster_* columns, the tightened team_count check, and
+--     create_mock_draft_room's new signature)
+--   supabase/migrate_mock_draft_autopick_and_end.sql (mock_draft_slots
+--     .autopick, set_mock_draft_autopick(), end_mock_draft_room(), and
+--     mock_draft_make_pick()'s updated body)
+-- Run each file once against a database that already has this table.
 --
 -- Multiple rooms run concurrently, each with a fixed number of
 -- draft slots (team_count), filled by real users and/or bots,
@@ -1032,6 +1035,12 @@ create table public.mock_draft_slots (
   user_id     uuid references auth.users(id) on delete set null,
   team_label  text not null,
   is_bot      boolean not null default false,
+  -- When true, every connected client autodrafts for this slot the
+  -- moment it's on the clock instead of waiting out pick_seconds --
+  -- set manually via set_mock_draft_autopick(), or automatically by
+  -- mock_draft_make_pick() the first time a human lets their own
+  -- deadline lapse (see that function's comment).
+  autopick    boolean not null default false,
   joined_at   timestamptz not null default now(),
   primary key (room_id, slot_index)
 );
@@ -1236,6 +1245,24 @@ $$;
 
 grant execute on function public.set_mock_draft_slot_bot(uuid, integer, boolean) to authenticated;
 
+create or replace function public.set_mock_draft_autopick(p_room_id uuid, p_enabled boolean)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  update public.mock_draft_slots set autopick = p_enabled
+  where room_id = p_room_id and user_id = uid;
+  if not found then
+    raise exception 'you are not seated in this room';
+  end if;
+end;
+$$;
+
+grant execute on function public.set_mock_draft_autopick(uuid, boolean) to authenticated;
+
 create or replace function public.start_mock_draft(p_room_id uuid)
 returns void
 language plpgsql security definer set search_path = public
@@ -1300,8 +1327,15 @@ begin
   select * into on_clock from public.mock_draft_slots where room_id = p_room_id and slot_index = slot_info.slot_index;
 
   if p_is_autopick then
-    if not (on_clock.is_bot or now() >= room.pick_deadline) then
+    if not (on_clock.is_bot or on_clock.autopick or now() >= room.pick_deadline) then
       raise exception 'autopick is not available yet';
+    end if;
+    -- A human missing their own deadline flips their slot's autopick
+    -- flag on (not just this one pick) so every connected client
+    -- autodrafts immediately for them on future turns too, instead of
+    -- stalling the room out for the full timer every round.
+    if not on_clock.is_bot and not on_clock.autopick and now() >= room.pick_deadline then
+      update public.mock_draft_slots set autopick = true where room_id = p_room_id and slot_index = slot_info.slot_index;
     end if;
   else
     if on_clock.is_bot or on_clock.user_id is distinct from uid then
@@ -1325,10 +1359,34 @@ begin
     select * into next_on_clock from public.mock_draft_slots where room_id = p_room_id and slot_index = next_slot_info.slot_index;
     update public.mock_draft_rooms
        set current_pick = next_pick,
-           pick_deadline = now() + (case when next_on_clock.is_bot then interval '4 seconds' else make_interval(secs => room.pick_seconds) end)
+           pick_deadline = now() + (case when (next_on_clock.is_bot or next_on_clock.autopick) then interval '4 seconds' else make_interval(secs => room.pick_seconds) end)
      where id = p_room_id;
   end if;
 end;
 $$;
 
 grant execute on function public.mock_draft_make_pick(uuid, text, text, boolean) to authenticated;
+
+-- Host-only escape hatch for a room nobody is going to finish (e.g.
+-- everyone left). Ends it in place with whatever picks happened so
+-- far rather than leaving it stuck showing "Live" forever in the
+-- lobby with nothing left to advance it (there's no server-side cron
+-- -- see the block comment at the top of this section).
+create or replace function public.end_mock_draft_room(p_room_id uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  room record;
+begin
+  if uid is null then raise exception 'not authenticated'; end if;
+  select * into room from public.mock_draft_rooms where id = p_room_id for update;
+  if not found then raise exception 'room not found'; end if;
+  if room.host_id <> uid then raise exception 'only the host can end this draft'; end if;
+  if room.status = 'completed' then return; end if;
+  update public.mock_draft_rooms set status = 'completed', completed_at = now() where id = p_room_id;
+end;
+$$;
+
+grant execute on function public.end_mock_draft_room(uuid) to authenticated;

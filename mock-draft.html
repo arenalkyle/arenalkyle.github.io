@@ -28,11 +28,28 @@
   display:block; font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: 0.05em;
   text-transform: uppercase; color: var(--text-mute); margin-bottom: 4px;
 }
-.roster-field input{
-  width:100%; background: var(--panel-alt); border: 1px solid var(--border); border-radius: 7px;
-  padding: 7px 8px; color: var(--text); font-size: 12.5px; outline:none; text-align:center;
+/* Custom stepper -- replaces the native <input type=number> spinner
+   arrows (deliberately not used anywhere on this site: hard to click,
+   inconsistent across browsers). */
+.stepper{
+  display:flex; align-items:stretch; background: var(--panel-alt); border: 1px solid var(--border);
+  border-radius: 7px; overflow:hidden;
 }
-.roster-field input:focus{ border-color: var(--brass); }
+.stepper:focus-within{ border-color: var(--brass); }
+.stepper-btn{
+  flex: 0 0 26px; background: var(--panel-hi); border: none; color: var(--text-dim); font-size: 14px;
+  font-family: 'JetBrains Mono', monospace; cursor: pointer; line-height:1; display:flex; align-items:center; justify-content:center;
+}
+.stepper-btn:hover{ color: var(--brass-bright); }
+.stepper-btn:active{ background: var(--panel); }
+.stepper-btn:disabled{ opacity: 0.35; cursor:default; color: var(--text-dim); }
+.stepper-value{
+  flex: 1 1 auto; width: 0; min-width:0; background:none; border:none; color: var(--text); font-size: 12.5px;
+  text-align:center; outline:none; font-family: inherit; padding: 7px 2px;
+  /* hide native number spinner in browsers that still add one */
+  -moz-appearance: textfield;
+}
+.stepper-value::-webkit-outer-spin-button, .stepper-value::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
 .roster-total{ font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-mute); margin: 8px 0 14px; }
 .roster-total strong{ color: var(--brass-bright); }
 
@@ -65,6 +82,7 @@
 .room-status-pill.waiting{ color: var(--brass-bright); border-color: var(--brass-dim); }
 .room-status-pill.in_progress{ color: #7a9e4e; border-color: #7a9e4e; }
 .room-status-pill.completed{ color: var(--text-mute); }
+.room-status-pill.stalled{ color: var(--danger); border-color: var(--danger); }
 .room-join-btn{
   margin-left:auto; flex-shrink:0; background: var(--brass); border: 1px solid var(--brass); color: #241209;
   font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 8px 16px; border-radius: 8px; cursor:pointer;
@@ -97,10 +115,6 @@
             <h2>Start a Room</h2>
             <div id="createGate" class="gate-note" style="display:none">Log in to host a mock draft.</div>
             <div id="createForm">
-              <div class="modal-field">
-                <label>Room Name</label>
-                <input type="text" id="fName" placeholder="e.g. Friday Night Mock">
-              </div>
               <div class="md-row">
                 <div class="modal-field">
                   <label>Teams</label>
@@ -138,14 +152,46 @@
 
               <div class="modal-field"><label>Roster Construction</label></div>
               <div class="roster-grid" style="margin-top:6px">
-                <div class="roster-field"><label>QB</label><input type="number" id="rQb" min="0" max="4" value="1"></div>
-                <div class="roster-field"><label>RB</label><input type="number" id="rRb" min="0" max="6" value="2"></div>
-                <div class="roster-field"><label>WR</label><input type="number" id="rWr" min="0" max="6" value="2"></div>
-                <div class="roster-field"><label>TE</label><input type="number" id="rTe" min="0" max="4" value="1"></div>
-                <div class="roster-field"><label>FLEX</label><input type="number" id="rFlex" min="0" max="4" value="1"></div>
-                <div class="roster-field"><label>D/ST</label><input type="number" id="rDst" min="0" max="2" value="1"></div>
-                <div class="roster-field"><label>K</label><input type="number" id="rK" min="0" max="2" value="1"></div>
-                <div class="roster-field"><label>Bench</label><input type="number" id="rBench" min="0" max="12" value="6"></div>
+                <div class="roster-field"><label>QB</label><div class="stepper" data-min="0" data-max="4">
+                  <button type="button" class="stepper-btn" data-step="-1" aria-label="Decrease">&minus;</button>
+                  <input class="stepper-value" id="rQb" value="1" inputmode="numeric">
+                  <button type="button" class="stepper-btn" data-step="1" aria-label="Increase">&plus;</button>
+                </div></div>
+                <div class="roster-field"><label>RB</label><div class="stepper" data-min="0" data-max="6">
+                  <button type="button" class="stepper-btn" data-step="-1" aria-label="Decrease">&minus;</button>
+                  <input class="stepper-value" id="rRb" value="2" inputmode="numeric">
+                  <button type="button" class="stepper-btn" data-step="1" aria-label="Increase">&plus;</button>
+                </div></div>
+                <div class="roster-field"><label>WR</label><div class="stepper" data-min="0" data-max="6">
+                  <button type="button" class="stepper-btn" data-step="-1" aria-label="Decrease">&minus;</button>
+                  <input class="stepper-value" id="rWr" value="2" inputmode="numeric">
+                  <button type="button" class="stepper-btn" data-step="1" aria-label="Increase">&plus;</button>
+                </div></div>
+                <div class="roster-field"><label>TE</label><div class="stepper" data-min="0" data-max="4">
+                  <button type="button" class="stepper-btn" data-step="-1" aria-label="Decrease">&minus;</button>
+                  <input class="stepper-value" id="rTe" value="1" inputmode="numeric">
+                  <button type="button" class="stepper-btn" data-step="1" aria-label="Increase">&plus;</button>
+                </div></div>
+                <div class="roster-field"><label>FLEX</label><div class="stepper" data-min="0" data-max="4">
+                  <button type="button" class="stepper-btn" data-step="-1" aria-label="Decrease">&minus;</button>
+                  <input class="stepper-value" id="rFlex" value="1" inputmode="numeric">
+                  <button type="button" class="stepper-btn" data-step="1" aria-label="Increase">&plus;</button>
+                </div></div>
+                <div class="roster-field"><label>D/ST</label><div class="stepper" data-min="0" data-max="2">
+                  <button type="button" class="stepper-btn" data-step="-1" aria-label="Decrease">&minus;</button>
+                  <input class="stepper-value" id="rDst" value="1" inputmode="numeric">
+                  <button type="button" class="stepper-btn" data-step="1" aria-label="Increase">&plus;</button>
+                </div></div>
+                <div class="roster-field"><label>K</label><div class="stepper" data-min="0" data-max="2">
+                  <button type="button" class="stepper-btn" data-step="-1" aria-label="Decrease">&minus;</button>
+                  <input class="stepper-value" id="rK" value="1" inputmode="numeric">
+                  <button type="button" class="stepper-btn" data-step="1" aria-label="Increase">&plus;</button>
+                </div></div>
+                <div class="roster-field"><label>Bench</label><div class="stepper" data-min="0" data-max="12">
+                  <button type="button" class="stepper-btn" data-step="-1" aria-label="Decrease">&minus;</button>
+                  <input class="stepper-value" id="rBench" value="6" inputmode="numeric">
+                  <button type="button" class="stepper-btn" data-step="1" aria-label="Increase">&plus;</button>
+                </div></div>
               </div>
               <div class="roster-total">Total roster size: <strong id="rosterTotal">15</strong> rounds</div>
 
@@ -194,7 +240,6 @@
   var els = {
     createGate: document.getElementById('createGate'),
     createForm: document.getElementById('createForm'),
-    fName: document.getElementById('fName'),
     fTeamCount: document.getElementById('fTeamCount'),
     fPickSeconds: document.getElementById('fPickSeconds'),
     fDraftType: document.getElementById('fDraftType'),
@@ -238,19 +283,62 @@
   rosterInputs().forEach(function(el){ el.addEventListener('input', updateRosterTotal); });
   updateRosterTotal();
 
-  function fmtStatus(s){ return s === 'in_progress' ? 'Live' : (s === 'completed' ? 'Finished' : 'Open'); }
+  // ---- Custom stepper (replaces native <input type=number> arrows) ----
+  document.querySelectorAll('.stepper').forEach(function(stepper){
+    var input = stepper.querySelector('.stepper-value');
+    var min = parseInt(stepper.getAttribute('data-min'), 10);
+    var max = parseInt(stepper.getAttribute('data-max'), 10);
+    function clamp(v){ return Math.max(min, Math.min(max, isNaN(v) ? min : v)); }
+    function setValue(v){
+      input.value = clamp(v);
+      updateRosterTotal();
+    }
+    stepper.querySelectorAll('.stepper-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        setValue((parseInt(input.value, 10) || 0) + parseInt(btn.getAttribute('data-step'), 10));
+      });
+    });
+    input.addEventListener('input', function(){
+      input.value = input.value.replace(/[^0-9]/g, '');
+    });
+    input.addEventListener('blur', function(){ setValue(parseInt(input.value, 10)); });
+  });
+
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  // A room stuck "in_progress" with a pick_deadline long in the past
+  // has nobody's browser driving it forward (autopick/bots only
+  // advance while a client has the room open -- there's no
+  // server-side cron, see the Mock Drafts comment in schema.sql), so
+  // it'll never finish on its own. Flag it instead of showing "Live"
+  // forever.
+  var STALL_THRESHOLD_MS = 20 * 60 * 1000;
+  function isStalled(room){
+    return room.status === 'in_progress' && room.pick_deadline &&
+      (Date.now() - new Date(room.pick_deadline).getTime()) > STALL_THRESHOLD_MS;
+  }
+  function fmtStatus(room){
+    if (room.status === 'completed') return 'Finished';
+    if (room.status === 'waiting') return 'Open';
+    return isStalled(room) ? 'Stalled' : 'Live';
+  }
 
   function roomCard(room, slotCounts, isMine){
     var card = document.createElement('div');
     card.className = 'room-card';
     var counts = slotCounts[room.id] || { filled: 0, total: room.team_count };
+    var stalled = isStalled(room);
     card.innerHTML =
       '<div>' +
-        '<div class="room-name">' + room.name + '</div>' +
+        '<div class="room-name">' + escapeHtml(room.name) + '</div>' +
         '<div class="room-meta">' + room.team_count + '-team · ' + room.rounds + ' rd · ' + room.draft_type +
           ' · ' + (SCORING_LABELS[room.scoring_format] || 'PPR') + ' · ' + counts.filled + '/' + counts.total + ' filled</div>' +
       '</div>' +
-      '<span class="room-status-pill ' + room.status + '">' + fmtStatus(room.status) + '</span>';
+      '<span class="room-status-pill ' + (stalled ? 'stalled' : room.status) + '">' + fmtStatus(room) + '</span>';
 
     var btn = document.createElement('button');
     btn.className = 'room-join-btn' + (isMine ? ' secondary' : '');
@@ -342,7 +430,7 @@
     els.createBtn.disabled = true;
     els.createBtn.textContent = 'Creating…';
     window.sb.rpc('create_mock_draft_room', {
-      p_name: els.fName.value.trim(),
+      p_name: '',
       p_team_count: parseInt(els.fTeamCount.value, 10),
       p_pick_seconds: parseInt(els.fPickSeconds.value, 10),
       p_draft_type: els.fDraftType.value,

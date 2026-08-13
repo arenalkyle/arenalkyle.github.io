@@ -45,15 +45,23 @@
 /* ---------- Live draft ---------- */
 .clock-bar{
   display:flex; align-items:center; justify-content:space-between; gap: 16px; background: var(--panel); border: 1px solid var(--brass-dim);
-  border-radius: 12px; padding: 12px 18px; margin-bottom: 14px; flex-wrap:wrap;
+  border-radius: 12px; padding: 12px 18px; margin-bottom: 14px; flex-wrap:wrap; transition: background .2s ease, box-shadow .2s ease;
+}
+@keyframes pulse-turn{
+  0%, 100%{ box-shadow: 0 0 0 2px rgba(201,161,90,0.3); }
+  50%{ box-shadow: 0 0 0 6px rgba(201,161,90,0.12); }
+}
+.clock-bar.mine-turn{
+  background: linear-gradient(135deg, rgba(201,161,90,0.22), var(--panel) 70%);
+  border-color: var(--brass); animation: pulse-turn 1.7s ease-in-out infinite;
 }
 .clock-pick{ font-family: 'Fraunces', serif; font-weight: 700; font-size: 15px; color: var(--text); }
 .clock-turn{ font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-mute); margin-top: 2px; }
-.clock-turn.mine{ color: var(--brass-bright); }
+.clock-turn.mine{ color: var(--brass-bright); font-weight: 700; font-size: 14px; letter-spacing: 0.02em; text-transform: uppercase; }
 .clock-timer-wrap{ display:flex; align-items:center; gap: 14px; }
 .clock-timer{ font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; color: var(--brass-bright); flex-shrink:0; }
 .last-pick-card{
-  display:flex; align-items:center; gap: 9px; background: var(--panel-alt); border: 1px solid var(--border-soft);
+  display:flex; align-items:center; gap: 9px; background: var(--panel-alt); border: 1px solid var(--border-soft); border-left-width: 3px;
   border-radius: 10px; padding: 5px 12px 5px 5px; cursor:pointer; transition: border-color .12s ease;
 }
 .last-pick-card:hover{ border-color: var(--brass-dim); }
@@ -86,28 +94,40 @@
 .ticker-pick .tp-player{ color: var(--text); font-weight: 600; }
 .ticker-pick .tp-team{ color: var(--brass); margin-left: 3px; }
 
-/* Fixed grid -- table-layout:fixed gives every team column an equal,
-   constant share of the panel's width regardless of content, so it
-   never resizes/reflows as picks stream in and never needs a
-   horizontal scrollbar. Only the row area scrolls, vertically, inside
-   a capped height. */
-.board-wrap{ max-height: 58vh; overflow-y:auto; overflow-x:hidden; border: 1px solid var(--border-soft); border-radius: 8px; }
-table.board-table{ table-layout: fixed; border-collapse: collapse; width: 100%; }
+/* Fixed grid of position-colored boxes -- table-layout:fixed gives
+   every team column an equal, constant share of the panel's width
+   regardless of content, so it never resizes/reflows as picks stream
+   in and never needs a horizontal scrollbar. Only the row area
+   scrolls, vertically, inside a capped height. border-spacing (with
+   border-collapse:separate) is what gives each cell its own visible
+   "box" with a gap around it, like a real draft board. */
+.board-wrap{ max-height: 60vh; overflow-y:auto; overflow-x:hidden; border: 1px solid var(--border-soft); border-radius: 8px; background: #17100e; padding: 2px; }
+table.board-table{ table-layout: fixed; border-collapse: separate; border-spacing: 3px; width: 100%; }
 table.board-table th{
-  position: sticky; top:0; background: #201310; text-align:left; padding: 6px 5px; font-size: 9.5px;
-  font-family: 'JetBrains Mono', monospace; color: var(--text-mute); border-bottom: 1px solid var(--border);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  position: sticky; top:0; background: #2a1c17; text-align:left; padding: 6px 5px; font-size: 9px;
+  font-family: 'JetBrains Mono', monospace; color: var(--text-mute); white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; border-radius: 5px; z-index: 2;
 }
-table.board-table th:first-child, table.board-table td:first-child{ width: 30px; }
+th.team-header{ cursor:pointer; transition: color .12s ease; }
+th.team-header:hover{ color: var(--brass-bright); }
+th.rd-col, td.rd-col{
+  width: 30px; text-align:center; background: #100b09; color: var(--text-mute); font-family:'JetBrains Mono', monospace;
+  font-size: 10.5px; font-weight:700; border-radius: 5px;
+}
 table.board-table td{
-  padding: 5px 5px; font-size: 10.5px; color: var(--text-dim); border-bottom: 1px solid var(--border-soft);
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  padding: 4px 5px; font-size: 10px; color: var(--text-dim); vertical-align: top; background: var(--panel-alt);
+  border-radius: 5px; overflow:hidden; border-left: 3px solid transparent;
 }
+table.board-table td.board-cell{ min-height: 38px; }
+.bc-pick{ font-family:'JetBrains Mono', monospace; font-size: 8.5px; color: var(--text-mute); margin-bottom: 2px; }
+.bc-name{ font-weight:700; color: var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size: 10.5px; }
+.bc-onclock{ font-weight:700; color: var(--brass-bright); font-size: 9.5px; text-transform:uppercase; letter-spacing:.03em; }
 table.board-table td.has-player{ cursor:pointer; }
-table.board-table td.has-player:hover{ text-decoration: underline; text-decoration-color: var(--brass-dim); }
-table.board-table td.on-clock{ background: rgba(201,161,90,0.14); color: var(--brass-bright); font-weight:600; }
-table.board-table td.empty-cell{ color: var(--text-mute); opacity: 0.5; }
-table.board-table td.mine-col, table.board-table th.mine-col{ background: rgba(201,161,90,0.06); }
+table.board-table td.has-player:hover{ outline: 1px solid var(--brass-dim); outline-offset: -1px; }
+table.board-table td.on-clock{ background: rgba(201,161,90,0.18); outline: 2px solid var(--brass); outline-offset: -2px; }
+table.board-table td.empty-cell{ opacity: 0.55; }
+table.board-table td.mine-col{ outline: 1px solid rgba(201,161,90,0.4); outline-offset: -1px; }
+table.board-table th.mine-col{ color: var(--brass-bright); }
 
 /* ---------- Players tab ---------- */
 .players-toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap: 10px; margin-bottom: 12px; }
@@ -125,25 +145,28 @@ table.board-table td.mine-col, table.board-table th.mine-col{ background: rgba(2
 .pool-toggle{ display:flex; align-items:center; gap: 6px; font-size: 12px; color: var(--text-dim); white-space:nowrap; }
 .pool-toggle input{ accent-color: var(--brass); width: 14px; height: 14px; }
 
-.pool-table-wrap{ max-height: 60vh; overflow-y:auto; overflow-x:hidden; border: 1px solid var(--border-soft); border-radius: 8px; }
+/* Deliberately narrower than the board -- this used to stretch the
+   full width of the center panel, which put the Draft/Queue buttons
+   far away from the player name. */
+.pool-table-wrap{ max-width: 620px; max-height: 62vh; overflow-y:auto; overflow-x:hidden; border: 1px solid var(--border-soft); border-radius: 8px; }
 table.pool-table{ width: 100%; border-collapse: collapse; table-layout: fixed; }
 table.pool-table th{
-  position: sticky; top:0; background: #201310; text-align:left; padding: 8px 10px; font-size: 10px;
+  position: sticky; top:0; background: #201310; text-align:left; padding: 8px 8px; font-size: 10px;
   font-family: 'JetBrains Mono', monospace; color: var(--text-mute); border-bottom: 1px solid var(--border); white-space:nowrap;
 }
 table.pool-table th.num{ text-align:right; }
-table.pool-table td{ padding: 7px 10px; font-size: 12.5px; color: var(--text-dim); border-bottom: 1px solid var(--border-soft); vertical-align: middle; overflow:hidden; }
+table.pool-table td{ padding: 6px 8px; font-size: 12px; color: var(--text-dim); border-bottom: 1px solid var(--border-soft); vertical-align: middle; overflow:hidden; }
 table.pool-table tr.drafted{ opacity: 0.4; }
-table.pool-table .avatar-wrap{ width: 30px; height: 30px; }
-table.pool-table .pt-player{ display:flex; align-items:center; gap: 9px; cursor:pointer; min-width:0; }
-table.pool-table .pt-name{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 13.5px; color: var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+table.pool-table .avatar-wrap{ width: 26px; height: 26px; }
+table.pool-table .pt-player{ display:flex; align-items:center; gap: 7px; cursor:pointer; min-width:0; }
+table.pool-table .pt-name{ font-family: 'Fraunces', serif; font-weight: 600; font-size: 12.5px; color: var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 table.pool-table .pt-player:hover .pt-name{ text-decoration: underline; text-decoration-color: var(--brass-dim); }
-table.pool-table .pt-team{ color: var(--text-mute); font-weight:500; font-size: 11.5px; }
+table.pool-table .pt-team{ color: var(--text-mute); font-weight:500; font-size: 10.5px; }
 table.pool-table td.num{ font-family: 'JetBrains Mono', monospace; text-align:right; color: var(--text-dim); white-space:nowrap; }
 table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:center; color: var(--text-dim); white-space:nowrap; }
-.pt-actions{ display:flex; gap: 6px; justify-content:flex-end; flex-wrap:wrap; }
+.pt-actions{ display:flex; gap: 4px; justify-content:flex-end; flex-wrap:wrap; }
 .pt-btn{
-  font-family:'JetBrains Mono', monospace; font-size: 10.5px; padding: 5px 10px; border-radius: 6px; cursor:pointer;
+  font-family:'JetBrains Mono', monospace; font-size: 10px; padding: 4px 8px; border-radius: 6px; cursor:pointer;
   border: 1px solid var(--border); background: var(--panel-alt); color: var(--text-dim); white-space:nowrap;
 }
 .pt-btn:hover{ border-color: var(--brass-dim); color: var(--text); }
@@ -154,25 +177,34 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
 /* ---------- My Team + Queue: always visible on the right ---------- */
 .team-col{ position: sticky; top: 0; display:flex; flex-direction:column; gap: 14px; }
 .team-panel{ padding: 14px; }
-.queue-list{ display:flex; flex-direction:column; gap: 6px; max-height: 180px; overflow-y:auto; }
-.queue-row{ display:flex; align-items:center; gap: 8px; background: var(--panel-alt); border: 1px solid var(--border-soft); border-radius: 7px; padding: 5px 8px; }
-.queue-rank{ font-family:'JetBrains Mono', monospace; font-size: 10px; color: var(--text-mute); width: 16px; flex-shrink:0; }
+.queue-panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 14px; gap: 8px; }
+.queue-panel-head h2{ margin: 0; }
+.autopick-toggle{ display:flex; align-items:center; gap: 6px; font-size: 11px; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; white-space:nowrap; }
+.autopick-toggle input{ accent-color: var(--brass); width: 14px; height: 14px; }
+.queue-list{ display:flex; flex-direction:column; gap: 6px; max-height: 220px; overflow-y:auto; }
+.queue-row{ display:flex; align-items:center; gap: 7px; background: var(--panel-alt); border: 1px solid var(--border-soft); border-radius: 7px; padding: 5px 8px; }
+.queue-rank{ font-family:'JetBrains Mono', monospace; font-size: 10px; color: var(--text-mute); width: 14px; flex-shrink:0; }
 .queue-name{ font-size: 12px; color: var(--text); flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; }
 .queue-name:hover{ text-decoration: underline; text-decoration-color: var(--brass-dim); }
+.queue-draft-btn{
+  font-family:'JetBrains Mono', monospace; font-size: 9.5px; padding: 4px 7px; border-radius: 6px; cursor:pointer;
+  background: var(--brass); border: 1px solid var(--brass); color: #241209; font-weight:700; flex-shrink:0;
+}
 .queue-remove{ background:none; border:none; color: var(--text-mute); font-size: 14px; cursor:pointer; flex-shrink:0; line-height:1; padding: 2px; }
 .queue-remove:hover{ color: var(--danger); }
 
 .roster-slot-list{ display:flex; flex-direction:column; gap: 6px; }
 .roster-slot{
-  display:flex; align-items:center; gap: 8px; background: var(--panel-alt); border: 1px solid var(--border-soft);
-  border-radius: 8px; padding: 7px 9px; min-height: 34px;
+  display:flex; align-items:center; gap: 7px; background: var(--panel-alt); border: 1px solid var(--border-soft);
+  border-radius: 8px; padding: 6px 9px; min-height: 34px;
 }
 .roster-slot.filled{ border-color: var(--border); cursor:pointer; }
 .roster-slot.filled:hover{ border-color: var(--brass-dim); }
-.roster-slot-pos{
-  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight:700; color: #17100e;
-  background: var(--panel-hi); border-radius: 5px; padding: 2px 6px; flex-shrink:0; width: 34px; text-align:center;
+.roster-slot-type{
+  font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight:700; color: var(--text-mute);
+  background: var(--panel-hi); border-radius: 5px; padding: 2px 5px; flex-shrink:0; width: 32px; text-align:center;
 }
+.roster-avatar-slot, .roster-slot .avatar-wrap{ width: 24px; height: 24px; flex-shrink:0; }
 .roster-slot-player{ font-size: 12px; color: var(--text); flex: 1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .roster-slot-empty{ font-size: 11.5px; color: var(--text-mute); font-style:italic; }
 .roster-bench-label{ margin: 10px 0 4px; font-family:'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing:.06em; text-transform:uppercase; color: var(--text-mute); }
@@ -233,7 +265,12 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
 
           <div class="team-col">
             <div class="panel team-panel">
-              <h2>Your Queue</h2>
+              <div class="queue-panel-head">
+                <h2>Your Queue</h2>
+                <label class="autopick-toggle" id="autopickToggleLabel" style="display:none">
+                  <input type="checkbox" id="autopickToggle"> Autopick
+                </label>
+              </div>
               <div id="queuePanelBody"></div>
             </div>
             <div class="panel team-panel">
@@ -253,6 +290,14 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
       </div>
 
     </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="teamRosterModal">
+  <div class="modal-box" id="teamRosterModalBox" style="max-width: 420px; text-align:left;">
+    <button class="modal-close" id="teamRosterModalClose" aria-label="Close">&times;</button>
+    <h2 class="modal-title" id="teamRosterModalTitle" style="text-align:left; margin-bottom:14px"></h2>
+    <div id="teamRosterModalBody"></div>
   </div>
 </div>
 
@@ -290,11 +335,17 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
     showDraftedToggle: document.getElementById('showDraftedToggle'),
     poolTableWrap: document.getElementById('poolTableWrap'),
     queuePanelBody: document.getElementById('queuePanelBody'),
+    autopickToggleLabel: document.getElementById('autopickToggleLabel'),
+    autopickToggle: document.getElementById('autopickToggle'),
     teamPanelTitle: document.getElementById('teamPanelTitle'),
     teamPanelBody: document.getElementById('teamPanelBody'),
     completedView: document.getElementById('completedView'),
     finalBoard: document.getElementById('finalBoard'),
-    draftAgainBtn: document.getElementById('draftAgainBtn')
+    draftAgainBtn: document.getElementById('draftAgainBtn'),
+    teamRosterModal: document.getElementById('teamRosterModal'),
+    teamRosterModalClose: document.getElementById('teamRosterModalClose'),
+    teamRosterModalTitle: document.getElementById('teamRosterModalTitle'),
+    teamRosterModalBody: document.getElementById('teamRosterModalBody')
   };
 
   if (!roomId){
@@ -309,7 +360,6 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
 
   var SCORING_LABELS = { ppr: 'PPR', half_ppr: 'Half-PPR', tep: 'TE Premium', superflex: 'Superflex' };
   var ROSTER_POS_ORDER = ['QB', 'RB', 'WR', 'TE', 'FLEX', 'DST', 'K'];
-  var ROSTER_COUNT_FIELD = { QB: 'roster_qb', RB: 'roster_rb', WR: 'roster_wr', TE: 'roster_te', FLEX: 'roster_flex', DST: 'roster_dst', K: 'roster_k' };
   var POSITIONS = ['QB', 'RB', 'WR', 'TE', 'DST', 'K'];
 
   var activeCenterTab = 'board';
@@ -318,12 +368,6 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
   var myQueue = [];
 
   function myId(){ return window.Auth && window.Auth.user ? window.Auth.user.id : null; }
-  function initials(name){
-    var parts = String(name || '').replace(/[^a-zA-Z0-9 ]/g, '').split(/\s+/).filter(Boolean);
-    if (!parts.length) return '?';
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  }
 
   function escapeHtml(s){
     return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
@@ -420,6 +464,116 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
     return { starters: slotsOut, bench: bench, benchSize: cfg.BENCH };
   }
 
+  // A position can be drafted if it fills an open starter/FLEX slot
+  // outright, OR there's bench room left over *after* reserving enough
+  // bench capacity for every still-open starter position -- e.g. once
+  // bench-remaining equals the count of unfilled required starters
+  // (K, D/ST, ...), a redundant QB/FLEX pick would eat into slots that
+  // have to go to those required positions, so it's blocked. This is
+  // what stops a team from finishing with 2 extra FLEX/QBs on the
+  // bench and no kicker or D/ST.
+  function remainingRosterInfo(slotIndex){
+    var assignment = assignRoster(slotIndex);
+    var openStarterPositions = assignment.starters.filter(function(s){ return !s.player; }).map(function(s){ return s.pos; });
+    var benchRemaining = assignment.benchSize - assignment.bench.length;
+    return { openStarterPositions: openStarterPositions, benchRemaining: benchRemaining };
+  }
+  function canDraftPosition(slotIndex, pos){
+    var info = remainingRosterInfo(slotIndex);
+    var fillsStarter = info.openStarterPositions.some(function(sp){ return sp === pos || (sp === 'FLEX' && FLEX_ELIGIBLE[pos]); });
+    if (fillsStarter) return true;
+    if (info.benchRemaining <= 0) return false;
+    return (info.benchRemaining - 1) >= info.openStarterPositions.length;
+  }
+  // Best-ranked player among positions this slot can actually still
+  // use -- "best fit + best available" rather than pure best-rank, so
+  // bots/autopick fill real needs instead of ignoring roster
+  // construction. sortedCandidates must already be sorted by rankFor.
+  function bestAvailableForSlot(slotIndex, sortedCandidates){
+    for (var i = 0; i < sortedCandidates.length; i++){
+      if (canDraftPosition(slotIndex, sortedCandidates[i].pos)) return sortedCandidates[i];
+    }
+    return null;
+  }
+
+  // ---------------- Pick-number labels (X.YY) ----------------
+  function pickLabelFromPick(pick){
+    return pick.round + '.' + String(((pick.pick_number - 1) % room.team_count) + 1).padStart(2, '0');
+  }
+  // Same "round.position-in-round" label, but for a cell with no
+  // recorded pick yet (future round, or the live on-the-clock cell) --
+  // derived from the snake/linear order directly instead of a
+  // pick_number that doesn't exist yet.
+  function pickLabelForCell(round, slotIndex){
+    var posInRound = (room.draft_type === 'snake' && round % 2 === 0) ? (room.team_count - slotIndex + 1) : slotIndex;
+    return round + '.' + String(posInRound).padStart(2, '0');
+  }
+
+  function hexToRgba(hex, alpha){
+    var h = String(hex || '').replace('#', '');
+    if (h.length === 3) h = h.split('').map(function(c){ return c + c; }).join('');
+    if (h.length !== 6) return 'rgba(136,136,136,' + alpha + ')';
+    var r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16);
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+  }
+
+  // ---------------- Shared roster rendering (My Team + other teams' modal) ----------------
+  // slotTypeLabel is the roster SLOT's type (QB/RB/.../FLEX/BENCH);
+  // the colored pill on the right is the drafted player's actual
+  // position -- the two differ exactly for FLEX and bench entries,
+  // which is why both are shown.
+  function rosterSlotHtml(slotTypeLabel, pickRow){
+    if (!pickRow){
+      return '<div class="roster-slot"><span class="roster-slot-type">' + slotTypeLabel + '</span><span class="roster-slot-empty">Empty</span></div>';
+    }
+    var pl = playerByKey(pickRow.player_key);
+    var pos = pl ? pl.pos : null;
+    var posLabel = pos === 'DST' ? 'D/ST' : (pos || '?');
+    return '<div class="roster-slot filled" data-open-key="' + escapeHtml(pickRow.player_key) + '">' +
+      '<span class="roster-slot-type">' + slotTypeLabel + '</span>' +
+      '<span class="roster-avatar-slot" data-key="' + escapeHtml(pickRow.player_key) + '"></span>' +
+      '<span class="roster-slot-player">' + escapeHtml(pickRow.player_name) + '</span>' +
+      (pos ? '<span class="pp-pos-pill pos-' + pos + '">' + posLabel + '</span>' : '') +
+    '</div>';
+  }
+  function rosterAssignmentHtml(slotIndex){
+    var assignment = assignRoster(slotIndex);
+    var html = '<div class="roster-slot-list">';
+    assignment.starters.forEach(function(s){ html += rosterSlotHtml(s.pos, s.player); });
+    html += '</div>';
+    html += '<div class="roster-bench-label">Bench (' + assignment.bench.length + '/' + assignment.benchSize + ')</div>';
+    html += '<div class="roster-slot-list">';
+    if (!assignment.bench.length){
+      html += '<div class="roster-slot-empty" style="padding:4px 2px">No bench picks yet.</div>';
+    } else {
+      assignment.bench.forEach(function(p){ html += rosterSlotHtml('BENCH', p); });
+    }
+    html += '</div>';
+    return html;
+  }
+  function hydrateRosterAvatars(container){
+    container.querySelectorAll('.roster-avatar-slot').forEach(function(slotEl){
+      var p = playerByKey(slotEl.getAttribute('data-key'));
+      if (p && window.PlayerRender) slotEl.replaceWith(window.PlayerRender.buildAvatarWrap(p, photoObserver));
+    });
+  }
+
+  // ---------------- Any team's roster (click a board column header) ----------------
+  function openTeamModal(slotIndex){
+    var s = slotByIndex(slotIndex);
+    if (!s) return;
+    els.teamRosterModalTitle.textContent = s.team_label;
+    els.teamRosterModalBody.innerHTML = rosterAssignmentHtml(slotIndex);
+    hydrateRosterAvatars(els.teamRosterModalBody);
+    els.teamRosterModal.classList.add('open');
+  }
+  els.teamRosterModalClose.addEventListener('click', function(){ els.teamRosterModal.classList.remove('open'); });
+  els.teamRosterModal.addEventListener('click', function(e){ if (e.target === els.teamRosterModal) els.teamRosterModal.classList.remove('open'); });
+  els.teamRosterModalBody.addEventListener('click', function(e){
+    var el = e.target.closest('[data-open-key]');
+    if (el) openCardByKey(el.getAttribute('data-open-key'));
+  });
+
   function slotByIndex(idx){ return slots.find(function(s){ return s.slot_index === idx; }) || null; }
   function mySlot(){ var uid = myId(); return uid ? slots.find(function(s){ return s.user_id === uid; }) || null : null; }
 
@@ -469,10 +623,23 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
       ' · ' + (room.is_public ? 'Public' : 'Private') + ' · Host: ' + hostLabel();
 
     var actions = [];
-    if (myId()){
-      actions.push('<button class="rh-btn" id="leaveBtn" style="display:none">Leave Room</button>');
+    var isHost = myId() && room.host_id === myId();
+    if (isHost && room.status === 'in_progress'){
+      actions.push('<button class="rh-btn danger" id="endDraftBtn">End Draft</button>');
     }
     els.headerActions.innerHTML = actions.join('');
+    var endBtn = document.getElementById('endDraftBtn');
+    if (endBtn) endBtn.addEventListener('click', function(){
+      // Rooms nobody has open never advance on their own -- see the
+      // Mock Drafts comment in schema.sql -- so this is the only way
+      // to get an abandoned draft out of "Live" and into a final,
+      // shareable state.
+      if (!confirm('End this draft now? Final results will lock in whatever has been picked so far.')) return;
+      window.sb.rpc('end_mock_draft_room', { p_room_id: room.id }).then(function(res){
+        if (res.error){ alert(res.error.message); return; }
+        loadAll();
+      });
+    });
   }
 
   function hostLabel(){
@@ -592,13 +759,19 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
   function renderClock(){
     els.clockBar.innerHTML = '';
     var oc = onClock();
+    var mine = !!(oc && oc.slot && oc.slot.user_id === myId() && !oc.slot.is_bot);
+    els.clockBar.classList.toggle('mine-turn', mine);
 
     var left = document.createElement('div');
     if (oc && oc.slot){
-      var mine = oc.slot.user_id === myId() && !oc.slot.is_bot;
+      var turnText;
+      if (mine) turnText = "YOUR PICK — choose a player";
+      else if (oc.slot.is_bot) turnText = escapeHtml(oc.slot.team_label) + ' (bot) is picking';
+      else if (oc.slot.autopick) turnText = escapeHtml(oc.slot.team_label) + ' (Autopick) is picking';
+      else turnText = escapeHtml(oc.slot.team_label) + ' is on the clock';
       left.innerHTML =
         '<div class="clock-pick">Pick ' + room.current_pick + ' &middot; Round ' + oc.round + '</div>' +
-        '<div class="clock-turn' + (mine ? ' mine' : '') + '">' + (mine ? "You're on the clock" : (oc.slot.is_bot ? escapeHtml(oc.slot.team_label) + ' (bot) is picking' : escapeHtml(oc.slot.team_label) + ' is on the clock')) + '</div>';
+        '<div class="clock-turn' + (mine ? ' mine' : '') + '">' + turnText + '</div>';
     } else {
       left.innerHTML = '<div class="clock-pick">Draft complete</div>';
     }
@@ -613,11 +786,12 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
       var s = slotByIndex(last.slot_index);
       var card = document.createElement('div');
       card.className = 'last-pick-card';
+      var posColor = lp && window.PlayerRender ? window.PlayerRender.posColor(lp.pos) : null;
+      if (posColor){ card.style.borderLeftColor = posColor; card.style.background = hexToRgba(posColor, 0.12); }
       if (lp && window.PlayerRender) card.appendChild(window.PlayerRender.buildAvatarWrap(lp, photoObserver));
-      var pickLabel = last.round + '.' + String(((last.pick_number - 1) % room.team_count) + 1).padStart(2, '0');
       var info = document.createElement('div');
       info.innerHTML =
-        '<div class="last-pick-label">Last Pick &middot; ' + pickLabel + '</div>' +
+        '<div class="last-pick-label">Last Pick &middot; ' + pickLabelFromPick(last) + '</div>' +
         '<div class="last-pick-name">' + escapeHtml(last.player_name) + '</div>' +
         '<div class="last-pick-meta">' + (s ? escapeHtml(s.team_label) : '?') + '</div>';
       card.appendChild(info);
@@ -643,20 +817,27 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
     }
     var oc = onClock();
     if (!oc || !oc.slot) return;
-    var due = oc.slot.is_bot || msLeft <= 0;
+    // Bots and autopick-flagged humans draft immediately, without
+    // waiting out the full timer -- see mock_draft_slots.autopick in
+    // schema.sql.
+    var due = oc.slot.is_bot || (oc.slot.autopick && oc.slot.user_id) || msLeft <= 0;
     if (due && autopickInFlightForPick !== room.current_pick){
       autopickInFlightForPick = room.current_pick;
       var picked = pickedKeySet();
+      var slotIdx = oc.slot.slot_index;
       var candidate = null;
       // Only ever true on the on-the-clock player's own browser -- see
-      // the comment above queueStorageKey().
+      // the comment above queueStorageKey(). Queue entries that no
+      // longer fit an open roster slot are skipped in favor of the
+      // next queued player, or the rank-based fallback below.
       if (oc.slot.user_id === myId() && !oc.slot.is_bot){
-        var q = activeQueue();
-        if (q.length) candidate = playerByKey(q[0]);
+        var q = activeQueue().map(playerByKey).filter(function(p){ return p && canDraftPosition(slotIdx, p.pos); });
+        if (q.length) candidate = q[0];
       }
       if (!candidate){
-        candidate = window.__PLAYERS__.filter(function(p){ return !picked.has(window.playerKey(p)); })
-          .sort(function(a, b){ return rankFor(a) - rankFor(b); })[0];
+        var pool = window.__PLAYERS__.filter(function(p){ return !picked.has(window.playerKey(p)); })
+          .sort(function(a, b){ return rankFor(a) - rankFor(b); });
+        candidate = bestAvailableForSlot(slotIdx, pool);
       }
       if (candidate){
         window.sb.rpc('mock_draft_make_pick', {
@@ -667,6 +848,11 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
   }
 
   function draftPlayer(p){
+    var mySlotObj = mySlot();
+    if (mySlotObj && !canDraftPosition(mySlotObj.slot_index, p.pos)){
+      alert("You don't have an open roster spot for " + (p.pos === 'DST' ? 'D/ST' : p.pos) + ' right now.');
+      return;
+    }
     window.sb.rpc('mock_draft_make_pick', {
       p_room_id: room.id, p_player_key: window.playerKey(p), p_player_name: p.name, p_is_autopick: false
     }).then(function(res){
@@ -693,42 +879,53 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
     recent.forEach(function(p){
       var s = slotByIndex(p.slot_index);
       var pl = playerByKey(p.player_key);
-      var pickLabel = p.round + '.' + String(((p.pick_number - 1) % room.team_count) + 1).padStart(2, '0');
       var item = document.createElement('div');
       item.className = 'ticker-pick';
+      var posColor = pl && window.PlayerRender ? window.PlayerRender.posColor(pl.pos) : null;
+      if (posColor){ item.style.borderLeft = '3px solid ' + posColor; item.style.background = hexToRgba(posColor, 0.1); }
       if (pl && window.PlayerRender) item.appendChild(window.PlayerRender.buildAvatarWrap(pl, photoObserver));
       var info = document.createElement('span');
-      info.innerHTML = '<span class="tp-num">' + pickLabel + '</span> <span class="tp-player">' + escapeHtml(p.player_name) + '</span><span class="tp-team">' + (s ? escapeHtml(s.team_label) : '?') + '</span>';
+      info.innerHTML = '<span class="tp-num">' + pickLabelFromPick(p) + '</span> <span class="tp-player">' + escapeHtml(p.player_name) + '</span><span class="tp-team">' + (s ? escapeHtml(s.team_label) : '?') + '</span>';
       item.appendChild(info);
       item.addEventListener('click', function(){ openCardByKey(p.player_key); });
       els.recentTicker.appendChild(item);
     });
   }
 
-  // Fixed grid: table-layout:fixed (set in CSS) means this never needs
-  // to be measured/resized as picks stream in, and never scrolls
-  // horizontally -- see the comment above .board-wrap in the <style>.
+  // Fixed grid of position-colored boxes: table-layout:fixed (set in
+  // CSS) means this never needs to be measured/resized as picks
+  // stream in, and never scrolls horizontally -- see the comment
+  // above .board-wrap in the <style>. Every cell -- filled, on the
+  // clock, or still in the future -- shows its round.pick label.
   function renderBoard(target){
     var oc = onClock();
     var uid = myId();
     var boardMap = {};
     picks.forEach(function(p){ boardMap[p.round + '-' + p.slot_index] = p; });
 
-    var html = '<table class="board-table"><thead><tr><th>Rd</th>';
+    var html = '<table class="board-table"><thead><tr><th class="rd-col">Rd</th>';
     slots.forEach(function(s){
-      html += '<th' + (s.user_id === uid ? ' class="mine-col"' : '') + ' title="' + escapeHtml(s.team_label) + '">' + escapeHtml(s.team_label) + '</th>';
+      html += '<th class="team-header' + (s.user_id === uid ? ' mine-col' : '') + '" data-team-slot="' + s.slot_index + '" title="Click to view ' + escapeHtml(s.team_label) + '\'s roster">' + escapeHtml(s.team_label) + '</th>';
     });
     html += '</tr></thead><tbody>';
     for (var r = 1; r <= room.rounds; r++){
-      html += '<tr><td>' + r + '</td>';
+      html += '<tr><td class="rd-col">' + r + '</td>';
       slots.forEach(function(s){
         var isOnClock = oc && oc.round === r && oc.slot && oc.slot.slot_index === s.slot_index;
         var pick = boardMap[r + '-' + s.slot_index];
-        var cls = (isOnClock ? 'on-clock' : (pick ? 'has-player' : 'empty-cell')) + (s.user_id === uid ? ' mine-col' : '');
+        var pl = pick ? playerByKey(pick.player_key) : null;
+        var pickLabel = pick ? pickLabelFromPick(pick) : pickLabelForCell(r, s.slot_index);
+        var cls = 'board-cell' + (isOnClock ? ' on-clock' : (pick ? ' has-player' : ' empty-cell')) + (s.user_id === uid ? ' mine-col' : '');
+        var style = '';
+        if (pl && window.PlayerRender){
+          var c = window.PlayerRender.posColor(pl.pos);
+          style = ' style="background:' + hexToRgba(c, 0.16) + ';border-left-color:' + c + ';"';
+        }
         var dataAttr = pick ? ' data-player-key="' + escapeHtml(pick.player_key) + '"' : '';
         var titleAttr = pick ? ' title="' + escapeHtml(pick.player_name) + '"' : '';
-        var content = pick ? escapeHtml(pick.player_name) : (isOnClock ? 'On the clock' : '—');
-        html += '<td class="' + cls + '"' + dataAttr + titleAttr + '>' + content + '</td>';
+        var body = '<div class="bc-pick">' + pickLabel + '</div>' +
+          (pick ? '<div class="bc-name">' + escapeHtml(pick.player_name) + '</div>' : (isOnClock ? '<div class="bc-onclock">On Clock</div>' : ''));
+        html += '<td class="' + cls + '"' + dataAttr + titleAttr + style + '>' + body + '</td>';
       });
       html += '</tr>';
     }
@@ -738,7 +935,9 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
 
   function handleBoardClick(e){
     var td = e.target.closest('[data-player-key]');
-    if (td) openCardByKey(td.getAttribute('data-player-key'));
+    if (td){ openCardByKey(td.getAttribute('data-player-key')); return; }
+    var th = e.target.closest('[data-team-slot]');
+    if (th) openTeamModal(parseInt(th.getAttribute('data-team-slot'), 10));
   }
   els.boardWrap.addEventListener('click', handleBoardClick);
   els.finalBoard.addEventListener('click', handleBoardClick);
@@ -766,27 +965,40 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
     var query = els.poolSearch.value.trim().toLowerCase();
     var oc = onClock();
     var myTurn = !!(oc && oc.slot && oc.slot.user_id === myId() && !oc.slot.is_bot);
+    var mySlotObj = mySlot();
 
+    // No cap here -- with Show Drafted on, a fixed slice used to
+    // truncate the combined drafted+undrafted list before every
+    // undrafted player fit, hiding some of them entirely. The
+    // scrollable wrap (max-height in CSS) is what keeps this usable.
     var list = window.__PLAYERS__.filter(function(p){
       if (!showDrafted && picked.has(window.playerKey(p))) return false;
       if (poolPosFilter !== 'all' && p.pos !== poolPosFilter) return false;
       if (query && p.name.toLowerCase().indexOf(query) === -1) return false;
       return true;
-    }).sort(function(a, b){ return rankFor(a) - rankFor(b); }).slice(0, 100);
+    }).sort(function(a, b){ return rankFor(a) - rankFor(b); });
 
     if (!list.length){
       els.poolTableWrap.innerHTML = '<div class="empty-state">No players match.</div>';
       return;
     }
 
-    var html = '<table class="pool-table"><thead><tr>' +
-      '<th>Player</th><th class="num">BYE</th><th class="num">PPG \'25</th><th class="num">PTS \'25</th><th class="num">POS RK</th><th></th>' +
+    var html = '<table class="pool-table"><colgroup>' +
+      '<col style="width:44%"><col style="width:12%"><col style="width:14%"><col style="width:14%"><col style="width:16%">' +
+      '</colgroup><thead><tr>' +
+      '<th>Player</th><th class="num">BYE</th><th class="num">PPG</th><th class="num">RK</th><th></th>' +
       '</tr></thead><tbody>';
 
     list.forEach(function(p){
       var key = window.playerKey(p);
       var isDrafted = picked.has(key);
       var posLabel = p.pos === 'DST' ? 'D/ST' : p.pos;
+      var draftDisabled = true, draftTitle = '';
+      if (!isDrafted){
+        if (!myTurn){ draftDisabled = true; draftTitle = 'Not your turn'; }
+        else if (mySlotObj && !canDraftPosition(mySlotObj.slot_index, p.pos)){ draftDisabled = true; draftTitle = 'No open roster spot for ' + posLabel; }
+        else { draftDisabled = false; }
+      }
       html += '<tr class="' + (isDrafted ? 'drafted' : '') + '">' +
         '<td><div class="pt-player" data-open-key="' + escapeHtml(key) + '">' +
           '<span class="pt-avatar-slot" data-key="' + escapeHtml(key) + '"></span>' +
@@ -795,12 +1007,11 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
         '</div></td>' +
         '<td class="bye">' + (p.bye || '—') + '</td>' +
         '<td class="num">' + (p.ppg25 ? p.ppg25.toFixed(1) : '—') + '</td>' +
-        '<td class="num">' + (p.points25 ? p.points25.toFixed(1) : '—') + '</td>' +
         '<td class="num">' + (p.posrank25 ? '#' + p.posrank25 : '—') + '</td>' +
         '<td><div class="pt-actions">' +
           (isDrafted ? '' :
             '<button class="pt-btn' + (isQueued(key) ? ' queued' : '') + '" data-queue-key="' + escapeHtml(key) + '">' + (isQueued(key) ? 'Queued ✓' : 'Queue') + '</button>' +
-            '<button class="pt-btn draft" data-draft-key="' + escapeHtml(key) + '"' + (myTurn ? '' : ' disabled') + '>Draft</button>'
+            '<button class="pt-btn draft" data-draft-key="' + escapeHtml(key) + '"' + (draftDisabled ? ' disabled' : '') + (draftTitle ? ' title="' + escapeHtml(draftTitle) + '"' : '') + '>Draft</button>'
           ) +
         '</div></td>' +
       '</tr>';
@@ -830,6 +1041,15 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
 
   // ---------------- Your Queue panel ----------------
   function renderQueuePanel(){
+    var mySlotObj = mySlot();
+    els.autopickToggleLabel.style.display = mySlotObj ? '' : 'none';
+    if (mySlotObj){
+      els.autopickToggle.checked = !!mySlotObj.autopick;
+    }
+
+    var oc = onClock();
+    var myTurn = !!(oc && oc.slot && oc.slot.user_id === myId() && !oc.slot.is_bot);
+
     var q = activeQueue();
     if (!q.length){
       els.queuePanelBody.innerHTML = '<div class="empty-state" style="padding:14px 2px">Queue players from the Players tab to auto-draft them on your turn if you miss the clock.</div>';
@@ -838,9 +1058,13 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
     var html = '<div class="queue-list">';
     q.forEach(function(key, idx){
       var p = playerByKey(key);
+      var posLabel = p ? (p.pos === 'DST' ? 'D/ST' : p.pos) : '';
+      var canDraftNow = myTurn && p && mySlotObj && canDraftPosition(mySlotObj.slot_index, p.pos);
       html += '<div class="queue-row">' +
         '<span class="queue-rank">' + (idx + 1) + '</span>' +
+        (p ? '<span class="pp-pos-pill pos-' + p.pos + '">' + posLabel + '</span>' : '') +
         '<span class="queue-name" data-open-key="' + escapeHtml(key) + '">' + (p ? escapeHtml(p.name) : 'Unknown') + '</span>' +
+        (canDraftNow ? '<button class="queue-draft-btn" data-draft-key="' + escapeHtml(key) + '">Draft</button>' : '') +
         '<button class="queue-remove" data-remove-key="' + escapeHtml(key) + '" aria-label="Remove from queue">&times;</button>' +
       '</div>';
     });
@@ -850,8 +1074,21 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
   els.queuePanelBody.addEventListener('click', function(e){
     var openEl = e.target.closest('[data-open-key]');
     if (openEl){ openCardByKey(openEl.getAttribute('data-open-key')); return; }
+    var draftBtn = e.target.closest('[data-draft-key]');
+    if (draftBtn){
+      var p = playerByKey(draftBtn.getAttribute('data-draft-key'));
+      if (p) draftPlayer(p);
+      return;
+    }
     var rm = e.target.closest('[data-remove-key]');
     if (rm) toggleQueue(rm.getAttribute('data-remove-key'));
+  });
+  els.autopickToggle.addEventListener('change', function(){
+    var enabled = els.autopickToggle.checked;
+    window.sb.rpc('set_mock_draft_autopick', { p_room_id: room.id, p_enabled: enabled }).then(function(res){
+      if (res.error){ alert(res.error.message); els.autopickToggle.checked = !enabled; return; }
+      loadAll();
+    });
   });
 
   // ---------------- My Team panel (always visible, roster-shaped) ----------------
@@ -863,27 +1100,8 @@ table.pool-table td.bye{ font-family: 'JetBrains Mono', monospace; text-align:ce
       return;
     }
     els.teamPanelTitle.textContent = slot.team_label;
-    var assignment = assignRoster(slot.slot_index);
-    var html = '<div class="roster-slot-list">';
-    assignment.starters.forEach(function(s){
-      var openAttr = s.player ? ' data-open-key="' + escapeHtml(s.player.player_key) + '"' : '';
-      html += '<div class="roster-slot' + (s.player ? ' filled' : '') + '"' + openAttr + '>' +
-        '<span class="roster-slot-pos" style="background:' + (window.PlayerRender ? window.PlayerRender.posColor(s.pos === 'FLEX' ? 'RB' : s.pos) : '#888') + '">' + s.pos + '</span>' +
-        (s.player ? '<span class="roster-slot-player">' + escapeHtml(s.player.player_name) + '</span>' : '<span class="roster-slot-empty">Empty</span>') +
-        '</div>';
-    });
-    html += '</div>';
-    html += '<div class="roster-bench-label">Bench (' + assignment.bench.length + '/' + assignment.benchSize + ')</div>';
-    html += '<div class="roster-slot-list">';
-    if (!assignment.bench.length){
-      html += '<div class="roster-slot-empty" style="padding:4px 2px">No bench picks yet.</div>';
-    } else {
-      assignment.bench.forEach(function(p){
-        html += '<div class="roster-slot filled" data-open-key="' + escapeHtml(p.player_key) + '"><span class="roster-slot-player">' + escapeHtml(p.player_name) + '</span></div>';
-      });
-    }
-    html += '</div>';
-    els.teamPanelBody.innerHTML = html;
+    els.teamPanelBody.innerHTML = rosterAssignmentHtml(slot.slot_index);
+    hydrateRosterAvatars(els.teamPanelBody);
   }
   els.teamPanelBody.addEventListener('click', function(e){
     var el = e.target.closest('[data-open-key]');

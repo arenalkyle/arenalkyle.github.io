@@ -276,7 +276,8 @@ column, next to a "Your Rooms" column); private rooms are joinable
 only via their `invite_code`. All writes go through RPCs
 (`create_mock_draft_room`, `join_mock_draft_room`,
 `leave_mock_draft_room`, `set_mock_draft_slot_bot`, `start_mock_draft`,
-`mock_draft_make_pick`) — see the block comment above that schema
+`mock_draft_make_pick`, `set_mock_draft_autopick`,
+`end_mock_draft_room`) — see the block comment above that schema
 section for the full design, and note this important asymmetry:
 **player data lives only in client-side `js/players-data.js`, not in
 Postgres**, so "who's the best player available" for an autopick is
@@ -302,11 +303,43 @@ control: `start_mock_draft()` auto-fills any still-empty seats as bots
 the moment the draft starts, and any open (non-bot) slot can be
 clicked directly to claim it, including switching to a different open
 slot after you've already joined one (leave + join in sequence,
-client-side). The live view's draft board is the main visual (center,
-widest column); the player pool is a narrow, compact column on the
-left, and the signed-in user's own team is a roster-shaped panel
-(starters grouped by position slot, then bench) that's always visible
-on the right rather than tucked behind a tab.
+client-side). The live view's draft board is the main visual, shown in
+its own tab (default-active) as a fixed grid of position-colored
+"pick boxes" (round.pick label + player, colored/bordered by the
+player's position — `mock-draft-room.html`'s `hexToRgba()` +
+`window.PlayerRender.posColor()`); a "Players" tab holds the
+searchable/filterable available-players table instead of a
+permanently-visible side column. The signed-in user's own team is a
+roster-shaped panel (starters grouped by position/FLEX slot, then
+bench, every filled slot showing the drafted player's actual position
+pill and photo) that's always visible on the right, next to a
+client-side "Your Queue" panel (localStorage, per room+user — never
+readable by other clients, see the comment above
+`queueStorageKey()`). Clicking any team's column header on the board
+opens that team's roster in the same shape via a modal
+(`openTeamModal()`), not just the viewer's own.
+
+Roster construction is enforced, not just a suggestion:
+`canDraftPosition()`/`remainingRosterInfo()` block drafting a position
+once its starter/FLEX slots are full and bench capacity is needed to
+reserve room for other still-open required positions (so a team can't
+finish with two extra FLEX/QBs on the bench and no kicker or D/ST).
+Bots and autopick both use `bestAvailableForSlot()` — best rank *among
+positions the roster can still use* — instead of pure best-rank, so
+picks reflect team need the way a human drafter would. A slot's
+`autopick` flag (new column, see migration below) makes every
+connected client autodraft for it immediately instead of waiting out
+the timer; it's settable anytime via the Queue panel's Autopick
+toggle, and `mock_draft_make_pick()` flips it on automatically the
+first time a human lets their own deadline lapse, so one missed pick
+doesn't repeatedly stall the room.
+
+Because nothing server-side drives an abandoned room forward (see the
+asymmetry note above), the host has an explicit **End Draft** button
+(`end_mock_draft_room`, header actions, only shown while
+`status = 'in_progress'`) to lock in final results early, and
+`mock-draft.html`'s lobby shows a room whose `pick_deadline` is more
+than 20 minutes stale as **Stalled** rather than "Live".
 
 **The Mock Drafts section of `schema.sql` is already live** on the
 project — despite older notes in this file, its `CREATE TABLE`
@@ -314,10 +347,16 @@ statements will error with "already exists" if run again as-is.
 `schema.sql`'s DDL there reflects the current desired schema (useful
 for a fresh install), but any change to an already-live table/function
 signature has to ship as its own `ALTER`/`DROP FUNCTION`+`CREATE`
-script — see `supabase/migrate_mock_draft_roster_config.sql` for the
-one that added `scoring_format`/`roster_*` and the tightened
-`team_count` check. Run one-off scripts like that once in the Supabase
-SQL editor, same as any other schema change described in SETUP.md.
+script — see:
+  - `supabase/migrate_mock_draft_roster_config.sql` (`scoring_format`/
+    `roster_*` columns, the tightened `team_count` check, and
+    `create_mock_draft_room`'s new signature)
+  - `supabase/migrate_mock_draft_autopick_and_end.sql`
+    (`mock_draft_slots.autopick`, `set_mock_draft_autopick()`,
+    `end_mock_draft_room()`, and `mock_draft_make_pick()`'s updated
+    body)
+Run each file once in the Supabase SQL editor, same as any other
+schema change described in SETUP.md.
 
 ## Not yet implemented (stubbed)
 

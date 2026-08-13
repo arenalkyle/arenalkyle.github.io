@@ -12,7 +12,7 @@
     posts: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"></rect><line x1="7" y1="9" x2="17" y2="9"></line><line x1="7" y1="13" x2="13" y2="13"></line></svg>',
     crown: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16l1.4-8.5-4.9 3-3.5-6-3.5 6-4.9-3L4 18z"></path></svg>',
     clipboard: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"></rect><path d="M9 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"></path><line x1="8" y1="11" x2="16" y2="11"></line><line x1="8" y1="15" x2="13" y2="15"></line></svg>',
-    mic: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
     info: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
     chevron: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>'
   };
@@ -29,7 +29,7 @@
     { href: 'rankings.html', label: 'Rankings', icon: ICONS.board },
     { href: 'rankings-editor.html', label: 'Create/Edit Rankings', icon: ICONS.edit },
     { href: 'draft-kit.html', label: 'Draft Kit', icon: ICONS.clipboard },
-    { href: 'mock-draft.html', label: 'Mock Draft', icon: ICONS.mic },
+    { href: 'mock-draft.html', label: 'Mock Draft', icon: ICONS.clock },
     { href: 'my-teams.html', label: 'My Teams', icon: ICONS.users },
     { href: 'trade-analyzer.html', label: 'Trade Analyzer', icon: ICONS.swap },
     { href: 'expert-reviews.html', label: 'Expert Reviews', icon: ICONS.star },
