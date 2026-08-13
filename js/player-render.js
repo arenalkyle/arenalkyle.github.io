@@ -27,13 +27,15 @@
     return pos === 'DST' ? 'D/ST' : pos;
   }
 
+  // Matches rankings.html's .pos-pill-cell palette so a position
+  // reads the same color everywhere on the site.
   var POS_COLORS = {
-    QB: '#c9645a',
-    RB: '#7a9e4e',
-    WR: '#5b9bd5',
-    TE: '#c9a15a',
-    K: '#b07cc6',
-    DST: '#8a8a8a'
+    QB: '#e0973f',
+    RB: '#5b9bd5',
+    WR: '#e8829c',
+    TE: '#ffffff',
+    K: '#e8d24a',
+    DST: '#e2726a'
   };
   function posColor(pos) {
     return POS_COLORS[pos] || 'var(--text-mute)';

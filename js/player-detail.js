@@ -384,7 +384,13 @@
         // Pull every season the player has been in the league, not
         // just the current + previous one -- rookies with no career
         // history yet still fall back to showing the current season.
-        var years = (bio.experienceYears && bio.experienceYears > 0) ? Math.min(bio.experienceYears, MAX_SEASONS_BACK) : 1;
+        // ESPN's experience.years occasionally undercounts (e.g. a
+        // season where a player barely played can go un-accrued), so
+        // fetch 2 extra seasons past what it reports as a buffer --
+        // the empty-season filter below drops any of those that
+        // genuinely come back with zero games, so this only ever adds
+        // real seasons, never blank rows.
+        var years = (bio.experienceYears && bio.experienceYears > 0) ? Math.min(bio.experienceYears + 2, MAX_SEASONS_BACK) : 1;
         var seasonYears = [];
         for (var i = 0; i < years; i++) seasonYears.push(CURRENT_SEASON_YEAR - i);
         if (seasonYears.indexOf(CURRENT_SEASON_YEAR) === -1) seasonYears.unshift(CURRENT_SEASON_YEAR);

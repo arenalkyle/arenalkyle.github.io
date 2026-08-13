@@ -47,8 +47,10 @@
     if (!el) return;
     var page = currentPage();
     el.classList.toggle('collapsed', isCollapsed());
-    var html = '<button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">' + ICONS.chevron + '</button>';
-    html += '<a class="sidebar-brand" href="index.html"><span>The Board</span></a>';
+    var html = '<div class="sidebar-header">' +
+      '<a class="sidebar-brand" href="index.html"><span>The Board</span></a>' +
+      '<button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">' + ICONS.chevron + '</button>' +
+    '</div>';
     html += '<div class="sidebar-section-label">Menu</div>';
     LINKS.forEach(function (link) {
       html += '<a class="sidebar-link' + (page === link.href ? ' active' : '') + '" href="' + link.href + '" title="' + link.label + '">' + link.icon + '<span>' + link.label + '</span></a>';
