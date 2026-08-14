@@ -11,6 +11,15 @@ analyzer, per-league standings (Sleeper/ESPN), paid expert reviews,
 subscriptions, and a Posts/blog section. It's Kyle (and Wesley's) site,
 hosted on GitHub Pages, backed by a single live Supabase project.
 
+## Keep docs in sync
+
+If a change alters something a markdown doc describes (this file,
+`SETUP.md`, `ROADMAP.md`, `README.md`, or a plan doc like
+`MOCK_DRAFT_PLAN.md`), update that doc in the *same* change — don't
+leave it describing stale behavior for the next agent to trip over.
+This file in particular gets read first and trusted; a wrong claim
+here costs more time than no claim at all.
+
 ## Stack, and the one rule that shapes everything else
 
 **No build step. No framework. No npm dependencies except the Supabase
@@ -65,10 +74,13 @@ profile.html                 Edit your own profile (avatar URL, username, displa
 admin.html                   Admin-only: user list + role assignment, role→permission policy matrix.
 draft-kit.html                 Checkable cheat sheet built from existing rankings data (tier-grouped,
                                position-filterable, click-to-mark-drafted, persisted in localStorage).
-mock-draft.html                Mock draft lobby: create a room, browse/join public rooms, join by invite code.
-mock-draft-room.html           A single mock draft room: waiting room (slots, bot-fill, start), the live
-                               drafting board (realtime, timer, autopick), and final results. See "Mock
-                               Drafts" below.
+mock-draft.html                Mock draft lobby: create a room, browse/join public rooms, join by invite
+                               code, plus the results modal for completed rooms. See "Mock Drafts" below.
+mock-draft-room.html           Pre-draft waiting room only (slots, invite link, Start Draft) + the
+                               "Enter Draft" handoff once it goes live. See "Mock Drafts" below.
+mock-draft-live.html           Full-screen live-draft tab (opened in a new tab from mock-draft-room.html
+                               or mock-draft.html) — the actual drafting board, plus an in-tab completed-
+                               state fallback. See "Mock Drafts" below.
 
 css/theme.css                 Every shared style: CSS custom properties (colors/fonts), app shell,
                                modal system, auth box + notification bell, player picker, player detail
@@ -267,6 +279,12 @@ bell's unread dot stays in sync across pages.
 
 ## Mock Drafts
 
+Three files, three jobs: `mock-draft.html` (lobby + results modal),
+`mock-draft-room.html` (pre-draft waiting room only), `mock-draft-live.html`
+(full-screen live draft, opened in its own tab). See `MOCK_DRAFT_PLAN.md`
+for the full reasoning behind the split and every non-obvious decision
+along the way — the plan's four parts are all landed as of this writing.
+
 Multiple concurrent draft rooms (`mock_draft_rooms`/`mock_draft_slots`/
 `mock_draft_picks` in `schema.sql`), each with real users and/or bots
 filling `team_count` slots (fixed to 6/8/10/12/14/16 by a check
@@ -283,10 +301,12 @@ section for the full design, and note this important asymmetry:
 Postgres**, so "who's the best player available" for an autopick is
 computed in the browser, not the database — the RPC only validates
 that an autopick was *legitimate* (bot's turn, or the deadline truly
-passed), never *which* player was chosen. `mock-draft-room.html`
-subscribes to all three tables via Supabase Realtime
-(`postgres_changes`, filtered by `room_id`) so every connected client
-sees picks/joins instantly.
+passed), never *which* player was chosen. Both `mock-draft-room.html`
+and `mock-draft-live.html` subscribe to `postgres_changes` (filtered by
+`room_id`) so every connected client sees picks/joins instantly —
+`mock-draft-room.html` only needs `mock_draft_rooms`/`mock_draft_slots`
+(no picks in the waiting room); `mock-draft-live.html` adds
+`mock_draft_picks`.
 
 A room also carries a `scoring_format` (ppr/half_ppr/tep/superflex)
 and a roster construction (`roster_qb`/`roster_rb`/`roster_wr`/
@@ -298,18 +318,19 @@ in `js/players-data.js`, so `mock-draft-room.html`'s
 `formatAdjustedRank()` nudges the existing kyle/wesley consensus rank
 with a heuristic per-position multiplier per format rather than a true
 recompute — documented as a known simplification in that function's
-comment, not a bug. The waiting room has no host-only "Fill w/ Bot"
+comment, not a bug (the function now lives in `mock-draft-live.html`).
+The waiting room has no host-only "Fill w/ Bot"
 control: `start_mock_draft()` auto-fills any still-empty seats as bots
 the moment the draft starts, and any open (non-bot) slot can be
 clicked directly to claim it, including switching to a different open
 slot after you've already joined one (leave + join in sequence,
-client-side). The live view's draft board is the main visual, shown in
-its own tab (default-active) as a fixed grid of position-colored
-"pick boxes" (round.pick label + player, colored/bordered by the
-player's position — `mock-draft-room.html`'s `hexToRgba()` +
-`window.PlayerRender.posColor()`); a "Players" tab holds the
-searchable/filterable available-players table instead of a
-permanently-visible side column. The signed-in user's own team is a
+client-side). The draft board is the main visual in `mock-draft-live.html`,
+a fixed grid of position-colored "pick boxes" (round.pick label +
+player, colored/bordered by the player's position — that file's
+`hexToRgba()` + `window.PlayerRender.posColor()`); the player pool sits
+in its own always-visible column to the left (no tabs — Board/Players
+tabs existed pre-split, in the old single-file `mock-draft-room.html`).
+The signed-in user's own team is a
 roster-shaped panel (starters grouped by position/FLEX slot, then
 bench, every filled slot showing the drafted player's actual position
 pill and photo) that's always visible on the right, next to a
@@ -318,6 +339,26 @@ readable by other clients, see the comment above
 `queueStorageKey()`). Clicking any team's column header on the board
 opens that team's roster in the same shape via a modal
 (`openTeamModal()`), not just the viewer's own.
+
+**Results are a modal, not a page** — `mock-draft.html`'s
+`.modal-backdrop`/`.modal-box` (`#resultsModal`), consistent with the
+site's "everything is a modal" convention, not `mock-draft-live.html`.
+It opens either from a completed room's "View Results" button in the
+lobby, or automatically via a `?results=<room_id>` query param — the
+redirect target when `mock-draft-room.html` detects a stray/bookmarked
+visit to a room that's since completed. The modal duplicates the board
+table and `rosterAssignmentHtml()`/`rosterSlotHtml()` roster rendering
+from `mock-draft-live.html` (page-local, not a shared module — see
+"IIFEs, not modules" above), trimmed to the completed-only case (no
+on-the-clock highlighting, no player pool/queue), plus a team-switch
+dropdown and a "Draft Again" button — stripping any existing trailing
+`(rematch)` suffix from the room name first so a rematch of a rematch
+never doubles up the label, same fix `mock-draft-live.html`'s own
+"Draft Again" applies. `mock-draft-live.html` still renders a completed draft in
+place too — that's the fallback for whoever already has the live tab
+open when a draft finishes, or a direct visit to that URL — but every
+lobby-driven path (View Results, and `mock-draft-room.html`'s stray-
+visit redirect) goes through the modal now.
 
 Roster construction is enforced, not just a suggestion:
 `canDraftPosition()`/`remainingRosterInfo()` block drafting a position
@@ -335,11 +376,26 @@ first time a human lets their own deadline lapse, so one missed pick
 doesn't repeatedly stall the room.
 
 Because nothing server-side drives an abandoned room forward (see the
-asymmetry note above), the host has an explicit **End Draft** button
-(`end_mock_draft_room`, header actions, only shown while
-`status = 'in_progress'`) to lock in final results early, and
-`mock-draft.html`'s lobby shows a room whose `pick_deadline` is more
-than 20 minutes stale as **Stalled** rather than "Live".
+asymmetry note above), there used to be a host-only **End Draft** button
+to lock in final results early — it's gone from the UI now (the
+`end_mock_draft_room` RPC is still in `schema.sql`, just unused by any
+page); a stalled draft resolves itself the next time anyone opens the
+live tab. A room whose `pick_deadline` is long stale is not flagged
+specially — `tickClock()` in `mock-draft-live.html` always finds *some* pick to make once due
+(falling back to the single best-ranked undrafted player, ignoring
+roster construction, if nothing satisfies `canDraftPosition()`), so
+any room with someone's tab open keeps advancing; `mock-draft.html`'s
+lobby just shows every `in_progress` room as **Live**. Bots (and
+autopicked humans, via the same fallback path) don't always take the
+literal top-ranked eligible player — `bestAvailableForSlot()` weights
+a random pick among the top 3 eligible candidates (60/25/15) so drafts
+don't play out in exact consensus-rank order.
+
+`start_mock_draft()` gives pick 1 a flat 30-second grace period on top
+of its normal per-pick timer, and `leave_mock_draft_room()` deletes a
+still-`waiting` room outright once leaving empties it of every
+human-occupied slot — see
+`supabase/migrate_mock_draft_leave_and_start_buffer.sql`.
 
 **The Mock Drafts section of `schema.sql` is already live** on the
 project — despite older notes in this file, its `CREATE TABLE`
@@ -355,6 +411,9 @@ script — see:
     (`mock_draft_slots.autopick`, `set_mock_draft_autopick()`,
     `end_mock_draft_room()`, and `mock_draft_make_pick()`'s updated
     body)
+  - `supabase/migrate_mock_draft_leave_and_start_buffer.sql`
+    (`start_mock_draft()`'s 30-second first-pick grace period, and
+    `leave_mock_draft_room()` deleting an emptied waiting room)
 Run each file once in the Supabase SQL editor, same as any other
 schema change described in SETUP.md.
 

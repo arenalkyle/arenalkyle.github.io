@@ -44,6 +44,16 @@ body{
 
 button, input{ font-family: inherit; }
 
+/* ---------- Global scrollbar theming ----------
+   Applies to every current and future overflow:auto/overflow-y:auto
+   container site-wide (sidebar, board tables, notif dropdown,
+   player-picker results, ...) with one rule instead of per-component. */
+html{ scrollbar-width: thin; scrollbar-color: var(--brass-dim) var(--panel); }
+*::-webkit-scrollbar{ width: 10px; height: 10px; }
+*::-webkit-scrollbar-track{ background: var(--panel); }
+*::-webkit-scrollbar-thumb{ background: var(--brass-dim); border-radius: 999px; border: 2px solid var(--panel); }
+*::-webkit-scrollbar-thumb:hover{ background: var(--brass); }
+
 /* ---------- App shell: sidebar + main content ---------- */
 .app-shell{ display:flex; height:100vh; overflow:hidden; }
 

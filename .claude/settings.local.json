@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"/c/Users/kylea/AppData/Local/Temp/claude/C--Development-claude-arenalkyle-github-io/f7f49678-269d-4b4e-b392-bcda3a577765/scratchpad\")",
+      "Bash(mv \"C:/Development/claude/arenalkyle.github.io/.scratch_players.json\" \"/c/Users/kylea/AppData/Local/Temp/claude/C--Development-claude-arenalkyle-github-io/f7f49678-269d-4b4e-b392-bcda3a577765/scratchpad/players.json\")",
+      "Bash(node -e ' *)",
+      "Bash(sort -u -t\"'\" -k2)",
+      "Bash(node --check js/auth.js)",
+      "Bash(node --check \"js/auth.js\")",
+      "Bash(curl *)",
+      "WebFetch(domain:api.fantasycalc.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(node --check \"C:\\\\Development\\\\claude\\\\arenalkyle.github.io\\\\js\\\\fantasy-platforms.js\")",
+      "Bash(node --check \"C:\\\\Development\\\\claude\\\\arenalkyle.github.io\\\\js\\\\sidebar.js\")",
+      "Bash(pkill -f \"http.server 8794\")",
+      "Bash(python3 -c ' *)",
+      "Bash(node --check \"C:\\\\Development\\\\claude\\\\arenalkyle.github.io\\\\js\\\\player-render.js\")"
+    ]
+  }
+}
